@@ -445,29 +445,113 @@
 })();
 </script>
   <script>
-async function testBackend() {
-  const base = "https://whatsapp-bot-backend-1jdi.onrender.com";
-  const key  = "ahmad_SUPER_secret_2025";
-  const box  = document.createElement("div");
-  box.style.padding = "10px";
-  box.style.marginTop = "10px";
-  box.style.background = "#f0f0f0";
-  box.style.border = "1px solid #ccc";
-  box.style.borderRadius = "8px";
-  box.innerText = "⏳ جاري فحص الاتصال...";
-  document.body.appendChild(box);
+(function () {
+  const btn = document.getElementById('pingServer');
+  const resEl = document.getElementById('pingResult');
+  const healthEl = document.getElementById('serviceHealth');
+  if (!btn || !resEl || !healthEl) return;
 
-  try {
-    const res = await fetch(base + "/health", {
-      headers: { Authorization: "Bearer " + key }
-    });
-    const data = await res.json();
-    box.innerText = "✅ الرد من السيرفر: " + JSON.stringify(data);
-  } catch (e) {
-    box.innerText = "❌ خطأ: " + e.message;
-  }
-}
-testBackend();
+  btn.addEventListener('click', async () => {
+    const base = (document.getElementById('apiBase').value || '').trim().replace(/\/$/,'');
+    const key  = (document.getElementById('apiKey').value  || '').trim();
+    resEl.textContent = '⏳ جارِ الفحص...';
+    try {
+      const res  = await fetch(base + '/health', { headers: { Authorization: 'Bearer ' + key } });
+      resEl.textContent   = res.ok ? '✅ متصل' : ('❌ ' + res.status);
+      healthEl.textContent = res.ok ? 'سليم' : 'غير متاح';
+    } catch (e) {
+      resEl.textContent   = '❌ فشل الاتصال: ' + e.message;
+      healthEl.textContent = 'غير متاح';
+    }
+  });
+})();
 </script>
+  <script>
+(function(){
+  const apiBaseEl = document.getElementById('apiBase');
+  const apiKeyEl  = document.getElementById('apiKey');
+  const connectBtn = document.getElementById('connectBtn');
+  const qrOverlay = document.getElementById('qrOverlay');
+  const qrBox = document.getElementById('qrBox');
+  const closeQr = document.getElementById('closeQr');
+
+  let pollTimer = null;
+
+  function openQR(){ qrOverlay.style.display = 'flex'; }
+  function closeQR(){
+    qrOverlay.style.display = 'none';
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+  closeQr?.addEventListener('click', closeQR);
+
+  async function fetchQR(base, key){
+    // يحاول يجلب صورة QR
+    const res = await fetch(base + '/session/qr', { headers: { Authorization: 'Bearer ' + key }});
+    if (res.ok) {
+      const data = await res.json();
+      if (data.qr) {
+        qrBox.innerHTML = `<img src="${data.qr}" alt="QR" style="width:100%;max-width:320px;display:block">`;
+        return 'qr';
+      }
+      if (data.message === 'Already connected') {
+        return 'connected';
+      }
+    }
+    // لو 503 أو غيره، نعرض ملاحظة ونكمل
+    qrBox.innerHTML = `<span class="muted">لا يوجد QR حاليًا… سيُعاد المحاولة</span>`;
+    return 'waiting';
+  }
+
+  async function checkReady(base, key){
+    const res = await fetch(base + '/health', { headers: { Authorization: 'Bearer ' + key }});
+    if (!res.ok) return false;
+    const data = await res.json();
+    return !!data.isReady;
+  }
+
+  async function startQrFlow(){
+    const base = (apiBaseEl.value || '').trim().replace(/\/$/, '');
+    const key  = (apiKeyEl.value  || '').trim();
+    if (!base) return alert('أدخل API Base');
+    openQR();
+    // محاولة أولى
+    const first = await fetchQR(base, key);
+    if (first === 'connected') {
+      qrBox.innerHTML = '<span class="muted">متصل مسبقًا ✅</span>';
+      setTimeout(closeQR, 900);
+      return;
+    }
+    // نبدأ poll: كل 3 ثوانٍ نتحقق من الجاهزية، وبينهم نحاول تحديث QR
+    pollTimer = setInterval(async () => {
+      const ready = await checkReady(base, key);
+      if (ready) {
+        qrBox.innerHTML = '<span class="muted">تم الاتصال ✅</span>';
+        setTimeout(closeQR, 800);
+        // (اختياري) حدث الحالة في الواجهة
+        const statusEl = document.getElementById('status');
+        if (statusEl) statusEl.textContent = 'متصل';
+        clearInterval(pollTimer); pollTimer = null;
+        return;
+      }
+      await fetchQR(base, key);
+    }, 3000);
+  }
+
+  connectBtn?.addEventListener('click', startQrFlow);
+})();
+</script>
+  <!-- Modal QR -->
+<div id="qrOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:99">
+  <div style="background:#fff;border-radius:16px;max-width:360px;width:92vw;padding:16px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.25)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <strong>امسح رمز واتساب</strong>
+      <button id="closeQr" class="btn btn-red" style="width:auto">إغلاق</button>
+    </div>
+    <div id="qrBox" style="min-height:300px;display:flex;align-items:center;justify-content:center;border:1px solid #eee;border-radius:12px;overflow:hidden">
+      <span class="muted">جارِ جلب QR...</span>
+    </div>
+    <div id="qrHint" class="muted" style="margin-top:8px">افتح واتساب → الأجهزة المرتبطة → اربط جهازًا</div>
+  </div>
+</div>
 </body>
 </html>
