@@ -1,557 +1,179 @@
-<!doctype html>
-
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>لوحة تحكم بوت واتساب – iOS Style</title>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Noto Sans Arabic", "Tajawal", Arial, sans-serif; background: #f5f6f8; margin: 0; padding: 0; color: #111827; }
-  .container { max-width: 960px; margin: 0 auto; padding: 20px; }
-  h1 { font-size: 22px; font-weight: 700; margin-bottom: 20px; text-align: center; }
-  h2 { font-size: 16px; font-weight: 800; margin: 0 0 10px; }
-  .card { background: #fff; border-radius: 18px; box-shadow: 0 4px 14px rgba(0,0,0,0.08); margin-bottom: 20px; padding: 16px; }
-  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .stack { display: flex; flex-direction: column; gap: 10px; }
-  .input, .select { flex: 1; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 12px; font-size: 14px; }
-  .textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 12px; font-size: 14px; resize: vertical; }
-  .btn { padding: 10px 14px; border: 0; border-radius: 12px; font-weight: 600; cursor: pointer; }
-  .btn-blue { background: #0a84ff; color: #fff; }
-  .btn-green { background: #34c759; color: #fff; }
-  .btn-red { background: #ff3b30; color: #fff; }
-  .btn-ghost { background:#eef2ff; color:#1e293b; }
-  .client { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; }
-  .muted { color: #6b7280; font-size: 13px; }
-  .switch { position: relative; width: 48px; height: 28px; background: #e5e7eb; border-radius: 999px; cursor: pointer; }
-  .switch input { display: none; }
-  .switch .dot { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; background: #fff; border-radius: 50%; transition: .2s; }
-  .switch input:checked + .dot { right: 23px; background: #34c759; }
-  .tags{display:flex;flex-wrap:wrap;gap:8px}
-  .tag{display:flex;align-items:center;gap:6px;background:#eef2ff;border:1px solid #e5e7eb;border-radius:999px;padding:6px 10px;font-size:13px}
-  .tag button{background:transparent;border:0;color:#ef4444;cursor:pointer}
-  .line{height:1px;background:#f1f5f9;margin:12px 0}
-  .pill{display:inline-block;background:#f3f4f6;border-radius:999px;padding:4px 10px;font-size:12px;color:#111827;margin:2px}
-</style>
+  <meta charset="UTF-8" />
+  <title>لوحة تحكم بوت واتساب</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{--blue:#0a84ff;--green:#34c759;--red:#ff3b30;--bg:#f7f7fb;--card:#fff;--muted:#64748b}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Tajawal",Arial,sans-serif;color:#0f172a}
+    header{background:var(--blue);color:#fff;padding:14px 16px;text-align:center;font-weight:800}
+    main{max-width:920px;margin:16px auto;padding:0 12px}
+    .card{background:var(--card);border-radius:16px;box-shadow:0 8px 24px rgba(2,6,23,.06);padding:16px;margin-bottom:12px}
+    h3{margin:0 0 10px;font-size:18px}
+    label{display:block;font-weight:700;margin:.4rem 0}
+    input,button,select{border-radius:12px;border:1px solid #e5e7eb;padding:10px 12px;font-size:15px}
+    input,select{width:100%}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .btn{background:var(--blue);color:#fff;border:none;cursor:pointer;font-weight:800}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .btn-ghost{background:#eef2ff;color:#1e293b;border:0}
+    .btn-red{background:var(--red)}
+    .muted{color:var(--muted);font-size:13px}
+    .state{display:inline-flex;gap:6px;align-items:center;background:#f3f4f6;padding:6px 10px;border-radius:999px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:860px){.grid{grid-template-columns:1fr}}
+    /* Modal */
+    #qrOverlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:50}
+    .qrCard{background:#fff;border-radius:16px;max-width:380px;width:92vw;padding:16px;box-shadow:0 20px 50px rgba(0,0,0,.2)}
+    .qrHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .qrBox{min-height:300px;display:flex;align-items:center;justify-content:center;border:1px solid #eef2f7;border-radius:12px;overflow:hidden}
+  </style>
 </head>
 <body>
-  <div class="container">
-    <h1>لوحة تحكم البوت</h1><!-- الاتصال والتحكم -->
-<div class="card">
-  <h2>الاتصال والتحكم</h2>
-  <div class="row">
-    <button class="btn btn-blue" id="connectBtn">🔗 ربط واتساب</button>
-    <button class="btn btn-green" id="startBtn">▶️ بدء</button>
-    <button class="btn btn-red" id="stopBtn" disabled>⏹️ إيقاف</button>
-    <span class="muted">الحالة: <strong id="status">غير متصل</strong></span>
-  </div>
-  <div class="line"></div>
-  <div class="stack">
-    <label class="muted">المجموعات التي يراقبها البوت</label>
-    <div class="row">
-      <input id="groupInput" class="input" placeholder="اكتب اسم المجموعة ثم اضغط إضافة" />
-      <button class="btn btn-ghost" id="addGroup">إضافة مجموعة</button>
-    </div>
-    <div class="tags" id="groupsTags"></div>
-  </div>
-  <div class="line"></div>
-  <div class="stack">
-    <label class="muted">خيارات متقدمة</label>
-    <div class="row">
-      <label><input type="checkbox" id="logMessages"> تسجيل كل الرسائل (Logs)</label>
-      <label><input type="checkbox" id="notifyOnMatch"> إشعار عند التطابق</label>
-      <label><input type="checkbox" id="allowImages"> تحليل الصور (OCR)</label>
-    </div>
-  </div>
-</div>
+  <header>📱 لوحة تحكم بوت واتساب</header>
+  <main>
 
-<!-- إعدادات التفاعل -->
-<div class="card">
-  <h2>إعدادات التفاعل</h2>
-  <div class="stack">
-    <label>وضع التفاعل</label>
-    <select id="mode" class="select">
-      <option value="reaction">تفاعل بإيموجي</option>
-      <option value="reply">رد نصي</option>
-    </select>
-    <input id="emoji" class="input" placeholder="الإيموجي عند التفاعل (✅)" />
-    <input id="replyText" class="input" placeholder="النص عند الرد (تم التأكيد ✅)" />
-    <div class="row">
-      <div class="stack" style="flex:1">
-        <label class="muted">بدء القراءة من التاريخ</label>
-        <input id="startDate" type="date" class="input" />
-      </div>
-      <div class="stack" style="width:200px">
-        <label class="muted">الساعة</label>
-        <input id="startTime" type="time" class="input" />
-      </div>
+    <div class="grid">
+      <!-- إعدادات الخادم -->
+      <section class="card">
+        <h3>🔧 إعدادات الخادم</h3>
+        <label>API Base URL</label>
+        <input id="apiBase" placeholder="https://your-backend.onrender.com" />
+        <label>API Key</label>
+        <input id="apiKey" type="password" placeholder="أدخل المفتاح" />
+        <div class="row">
+          <button class="btn btn-ghost" id="pingServer">فحص الاتصال</button>
+          <span class="state">الحالة: <strong id="serviceHealth">غير معروف</strong></span>
+        </div>
+        <div class="muted" id="pingResult">—</div>
+      </section>
+
+      <!-- اتصال واتساب -->
+      <section class="card">
+        <h3>🟢 اتصال واتساب</h3>
+        <div class="row">
+          <button class="btn" id="connectBtn">ربط واتساب (مسح QR)</button>
+          <span class="state">جلسة: <strong id="status">غير متصل</strong></span>
+        </div>
+        <p class="muted">بعد الاتصال يمكنك لاحقًا جلب المجموعات تلقائيًا من الباك-إند.</p>
+      </section>
     </div>
-    <div class="row">
-      <div class="stack" style="flex:1">
-        <label class="muted">حدّ التطابق (%)</label>
-        <input id="threshold" type="number" class="input" min="40" max="95" step="1" placeholder="60" />
+
+    <!-- يمكنك إضافة أقسام الإعدادات/العملاء لاحقًا ونحن نطوّرها خطوة بخطوة -->
+
+  </main>
+
+  <!-- Modal QR -->
+  <div id="qrOverlay">
+    <div class="qrCard" role="dialog" aria-modal="true">
+      <div class="qrHead">
+        <strong>امسح رمز واتساب</strong>
+        <button id="closeQr" class="btn btn-red">إغلاق</button>
       </div>
-      <div class="stack" style="flex:1">
-        <label class="muted">إجراء عند عدم التطابق</label>
-        <select id="fallback" class="select">
-          <option value="ignore">تجاهل</option>
-          <option value="flag">تأشير للتدقيق</option>
-          <option value="auto-reply">رد تلقائي عام</option>
-        </select>
+      <div id="qrBox" class="qrBox">
+        <span class="muted">جارِ جلب QR...</span>
       </div>
+      <div id="qrHint" class="muted" style="margin-top:8px">افتح واتساب → الأجهزة المرتبطة → اربط جهازًا</div>
     </div>
   </div>
-</div>
 
-<!-- إدارة العملاء -->
-<div class="card">
-  <h2>إدارة العملاء</h2>
-  <div class="row">
-    <input id="clientName" class="input" placeholder="الاسم الثلاثي" />
-    <input id="clientEmoji" class="input" placeholder="إيموجي مخصص" />
-    <button class="btn btn-blue" id="addClient">إضافة</button>
-  </div>
-  <div class="line"></div>
-  <div class="stack">
-    <label><strong>لصق أسماء العملاء دفعة واحدة</strong></label>
-    <textarea id="bulkTextarea" class="textarea" placeholder="مثال:\nأحمد عيسى محمد\nمحمد علي أحمد,✅\nليلى خالد حسن,🔥"></textarea>
-    <div class="row">
-      <button class="btn btn-blue" id="bulkAddBtn">إضافة الدفعة</button>
-      <button class="btn btn-red" id="clearClients">حذف جميع العملاء</button>
-    </div>
-  </div>
-  <div class="line"></div>
-  <div class="stack">
-    <label><strong>استيراد من Google Sheets (CSV)</strong></label>
-    <div class="row">
-      <input id="sheetUrl" class="input" placeholder="رابط CSV المنشور" />
-      <button class="btn btn-blue" id="importSheet">استيراد</button>
-    </div>
-  </div>
-  <div class="line"></div>
-  <div id="clientsList"></div>
-</div>
-
-<!-- إحصائيات -->
-<div class="card">
-  <h2>إحصائيات</h2>
-  <div class="row">
-    <div class="pill">📊 عدد العملاء: <span id="statClients">0</span></div>
-    <div class="pill">💬 الرسائل المعالجة: <span id="statMessages">0</span></div>
-    <div class="pill">✅ التطابقات: <span id="statMatches">0</span></div>
-  </div>
-</div>
-
-<!-- إعدادات متقدمة للتفاعل -->
-<div class="card">
-  <h2>إعدادات متقدمة للتفاعل</h2>
-  <div class="stack">
-    <div class="row">
-      <div class="stack" style="width:180px">
-        <label class="muted">نسبة التطابق (%)</label>
-        <input id="threshold" type="number" class="input" min="40" max="95" step="1" placeholder="60" />
-      </div>
-      <div class="stack" style="width:200px">
-        <label class="muted">مهلة بين ردّين (ث)</label>
-        <input id="cooldown" type="number" class="input" min="0" max="300" step="1" placeholder="3" />
-      </div>
-      <div class="stack" style="width:240px">
-        <label class="muted">الحد الأقصى للتفاعلات/دقيقة</label>
-        <input id="rateLimit" type="number" class="input" min="1" max="120" step="1" placeholder="20" />
-      </div>
-    </div>
-    <div class="row">
-      <div class="stack" style="flex:1">
-        <label class="muted">كلمات يجب وجودها (اختياري)</label>
-        <input id="mustInclude" class="input" placeholder="مثال: وصل, استلام, حوالة" />
-      </div>
-      <div class="stack" style="flex:1">
-        <label class="muted">كلمات تمنع التفاعل (اختياري)</label>
-        <input id="mustExclude" class="input" placeholder="مثال: تجربة, تجريبي, مزاح" />
-      </div>
-    </div>
-    <div class="row">
-      <label class="row" style="gap:6px"><input type="checkbox" id="normalizeArabic" checked> تطبيع/إزالة التشكيل العربي</label>
-      <label class="row" style="gap:6px"><input type="checkbox" id="instantEyes" checked> 👀 رد فوري على الصور ثم ✅ بعد التحقق</label>
-      <label class="row" style="gap:6px"><input type="checkbox" id="enableOCR" checked> تفعيل OCR للصور</label>
-    </div>
-  </div>
-</div>
-
-<!-- إعدادات الخادم (متقدم) -->
-<div class="card">
-  <div class="row" style="justify-content:space-between;align-items:center">
-    <h2>إعدادات الخادم (متقدم)</h2>
-    <span class="muted">للاتصال بباك-إند البوت</span>
-  </div>
-  <div class="row">
-    <input id="apiBase" class="input" placeholder="API Base URL (مثال: https://bot.example.com)" />
-    <input id="apiKey" class="input" placeholder="API Key / Token" />
-  </div>
-  <div class="row" style="margin-top:8px">
-    <button class="btn btn-ghost" id="exportSettings">📤 تصدير الإعدادات</button>
-    <label class="btn btn-ghost" for="importSettings">📥 استيراد الإعدادات</label>
-    <input id="importSettings" type="file" accept="application/json" style="display:none" />
-    <button class="btn btn-blue" id="pingServer">فحص الاتصال</button>
-    <span class="muted" id="pingResult">—</span>
-  </div>
-  <p class="hint">التصدير/الاستيراد يشمل الإعدادات والمجموعات فقط (العملاء يُدارون من القسم أعلاه).</p>
-</div>
-
-  </div><script>
-  const $ = s => document.querySelector(s);
-  const els = {
-    status: document.getElementById('status'), startBtn: document.getElementById('startBtn'), stopBtn: document.getElementById('stopBtn'),
-    connectBtn: document.getElementById('connectBtn'),
-    mode: document.getElementById('mode'), emoji: document.getElementById('emoji'), replyText: document.getElementById('replyText'), startDate: document.getElementById('startDate'), startTime: document.getElementById('startTime'),
-    groupInput: document.getElementById('groupInput'), addGroup: document.getElementById('addGroup'), groupsTags: document.getElementById('groupsTags'), pickFromWhatsApp: document.getElementById('pickFromWhatsApp'),
-    clientName: document.getElementById('clientName'), clientEmoji: document.getElementById('clientEmoji'), addClient: document.getElementById('addClient'),
-    bulkTextarea: document.getElementById('bulkTextarea'), bulkAddBtn: document.getElementById('bulkAddBtn'), clearClients: document.getElementById('clearClients'),
-    sheetUrl: document.getElementById('sheetUrl'), importSheet: document.getElementById('importSheet'),
-    clientsList: document.getElementById('clientsList'),
-    threshold: document.getElementById('threshold'), cooldown: document.getElementById('cooldown'), rateLimit: document.getElementById('rateLimit'),
-    mustInclude: document.getElementById('mustInclude'), mustExclude: document.getElementById('mustExclude'),
-    normalizeArabic: document.getElementById('normalizeArabic'), enableOCR: document.getElementById('enableOCR'), instantEyes: document.getElementById('instantEyes'),
-    timezone: document.getElementById('timezone'),
-    apiBase: document.getElementById('apiBase'), apiKey: document.getElementById('apiKey'), pingServer: document.getElementById('pingServer'), pingResult: document.getElementById('pingResult'),
-    exportSettings: document.getElementById('exportSettings'), importSettings: document.getElementById('importSettings'),
-    groupsOverlay: document.getElementById('groupsOverlay'), closeGroupsModal: document.getElementById('closeGroupsModal'),
-    groupSearch: document.getElementById('groupSearch'), chatsList: document.getElementById('chatsList'), chatsHint: document.getElementById('chatsHint'),
-    refreshChats: document.getElementById('refreshChats'), selectAllChats: document.getElementById('selectAllChats'), clearAllChats: document.getElementById('clearAllChats'),
-    saveSelectedGroups: document.getElementById('saveSelectedGroups'), selectedCount: document.getElementById('selectedCount')
-  };
-
-  let clients = [];
-  let groups = [];
-  let stats = { messages:0, matches:0 };
-
-  function renderClients(){
-    els.clientsList.innerHTML = '';
-    els.statClients.textContent = clients.length;
-    if(clients.length===0){ els.clientsList.innerHTML = '<div class="muted">لا يوجد عملاء بعد</div>'; return; }
-    clients.forEach((c,i)=>{
-      const div = document.createElement('div');
-      div.className = 'client';
-      div.innerHTML = `<div><strong>${c.name}</strong><div class='muted'>رد: ${c.emoji||'✅'}</div></div>
-      <button class='btn btn-red' onclick='removeClient(${i})'>حذف</button>`;
-      els.clientsList.appendChild(div);
-    });
-  }
-  function removeClient(i){ clients.splice(i,1); renderClients(); }
-
-  els.addClient.onclick = ()=>{
-    const name = els.clientName.value.trim(); if(!name) return;
-    const emoji = els.clientEmoji.value.trim() || '✅';
-    clients.push({ name, emoji, active:true });
-    els.clientName.value=''; els.clientEmoji.value='';
-    renderClients();
-  };
-
-  els.bulkAddBtn.onclick = ()=>{
-    const raw = els.bulkTextarea.value.trim(); if(!raw) return;
-    raw.split(/\r?\n/).forEach(line=>{
-      const parts = line.split(',');
-      const name = (parts[0]||'').trim();
-      if(!name) return;
-      const emoji = (parts[1]||'').trim()||'✅';
-      clients.push({ name, emoji, active:true });
-    });
-    els.bulkTextarea.value='';
-    renderClients();
-  };
-
-  els.clearClients.onclick = ()=>{ if(confirm('حذف جميع العملاء؟')){ clients=[]; renderClients(); } };
-
-  els.addGroup.onclick = ()=>{
-    const g = els.groupInput.value.trim(); if(!g) return;
-    if(!groups.includes(g)) groups.push(g);
-    renderGroups(); els.groupInput.value='';
-  };
-  function renderGroups(){
-    els.groupsTags.innerHTML = '';
-    groups.forEach((g,i)=>{
-      const tag = document.createElement('div');
-      tag.className='tag';
-      tag.innerHTML = g+` <button onclick='removeGroup(${i})'>×</button>`;
-      els.groupsTags.appendChild(tag);
-    });
-  }
-  function removeGroup(i){ groups.splice(i,1); renderGroups(); }
-
-  els.importSheet.onclick = async()=>{
-    const url = els.sheetUrl.value.trim(); if(!url) return;
-    try{
-      const res = await fetch(url); const text = await res.text();
-      text.split(/\r?\n/).forEach(line=>{
-        const cols=line.split(',');
-        const name=(cols[0]||'').trim(); if(!name||/^(name)$/i.test(name)) return;
-        const emoji=(cols[1]||'').trim()||'✅';
-        clients.push({ name, emoji, active:true });
-      });
-      renderClients(); alert('تم الاستيراد ✅');
-    }catch(e){ alert('فشل الاستيراد'); }
-  };
-
-  // تشغيل/إيقاف (تجريبي)
-  els.startBtn.onclick = ()=>{ els.status.textContent='قيد التشغيل'; els.startBtn.disabled=true; els.stopBtn.disabled=false; };
-  els.stopBtn.onclick = ()=>{ els.status.textContent='متوقف'; els.startBtn.disabled=false; els.stopBtn.disabled=true; };
-
-  renderClients();
-  renderGroups();
-// ======== تكملة: إعدادات متقدمة وعمليات الخادم ========
-(function(){
-  const LS_SETTINGS='bot_settings_v1';
-  const LS_GROUPS='bot_groups_v1';
-  function get(id){return document.getElementById(id)}
-  function read(){try{return JSON.parse(localStorage.getItem(LS_SETTINGS)||'{}')}catch{return {}}}
-  function write(o){localStorage.setItem(LS_SETTINGS, JSON.stringify(o))}
-  function setVal(id,v){const e=get(id); if(e&&v!==undefined) e.value=v}
-  function setChk(id,v){const e=get(id); if(e) e.checked=!!v}
-  function val(id,def){const e=get(id); return e?(e.value||def):def}
-  function chk(id){const e=get(id); return e?!!e.checked:false}
-  function stamp(){const t=get('lastRefresh'); if(t) t.textContent=new Date().toLocaleString()}
-
-  let s = read();
-  // افتراضيات للحقول الجديدة
-  s.threshold = typeof s.threshold==='number'? s.threshold : 60;
-  s.cooldown = typeof s.cooldown==='number'? s.cooldown : 3;
-  s.rateLimit = typeof s.rateLimit==='number'? s.rateLimit : 20;
-  s.mustInclude = s.mustInclude||'';
-  s.mustExclude = s.mustExclude||'';
-  s.normalizeArabic = (s.normalizeArabic!==false);
-  s.enableOCR = (s.enableOCR!==false);
-  s.instantEyes = (s.instantEyes!==false);
-  s.timezone = s.timezone||'auto';
-  s.apiBase = s.apiBase||'';
-  s.apiKey = s.apiKey||'';
-  write(s);
-
-  // تعبئة الحقول إن وُجدت
-  setVal('threshold', s.threshold);
-  setVal('cooldown', s.cooldown);
-  setVal('rateLimit', s.rateLimit);
-  setVal('mustInclude', s.mustInclude);
-  setVal('mustExclude', s.mustExclude);
-  setChk('normalizeArabic', s.normalizeArabic);
-  setChk('enableOCR', s.enableOCR);
-  setChk('instantEyes', s.instantEyes);
-  setVal('timezone', s.timezone);
-  setVal('apiBase', s.apiBase);
-  setVal('apiKey', s.apiKey);
-  stamp();
-
-  // حفظ عند التغيير
-  ['threshold','cooldown','rateLimit','mustInclude','mustExclude','timezone','apiBase','apiKey']
-    .forEach(id=>{ const e=get(id); if(e) e.addEventListener('change', ()=>{ s=read(); s[id]= (id==='threshold'||id==='cooldown'||id==='rateLimit')? Number(val(id)) : val(id,''); write(s); stamp(); }) });
-  ['normalizeArabic','enableOCR','instantEyes']
-    .forEach(id=>{ const e=get(id); if(e) e.addEventListener('change', ()=>{ s=read(); s[id]= chk(id); write(s); stamp(); }) });
-
-  // تصدير/استيراد الإعدادات (مع المجموعات)
-  const exp=get('exportSettings'); if(exp) exp.addEventListener('click',()=>{
-    const data = { settings: read(), groups: (function(){try{return JSON.parse(localStorage.getItem(LS_GROUPS)||'[]')}catch{return []}})() };
-    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='bot_settings.json'; a.click(); URL.revokeObjectURL(url);
-  });
-  const imp=get('importSettings'); if(imp) imp.addEventListener('change', async (e)=>{
-    const f=e.target.files&&e.target.files[0]; if(!f) return; const text=await f.text();
-    try{
-      const obj=JSON.parse(text);
-      if(obj.settings){ write({...read(), ...obj.settings}); }
-      if(Array.isArray(obj.groups)){ localStorage.setItem(LS_GROUPS, JSON.stringify(obj.groups)); }
-      location.reload();
-    }catch{ alert('ملف غير صالح'); }
-  });
-
-  // فحص الاتصال بالخادم
-  const ping=get('pingServer'); if(ping) ping.addEventListener('click', async ()=>{
-    const base=val('apiBase','').replace(/\/$/,''); const key=val('apiKey',''); const out=get('pingResult');
-    if(!base){ alert('أدخل API Base'); return; }
-    try{ const res=await fetch(base+'/health',{headers:{'Authorization':'Bearer '+key}});
-      if(out) out.textContent = res.ok? '✅ متصل' : ('❌ '+res.status);
-      const sh=document.getElementById('serviceHealth'); if(sh) sh.textContent = res.ok? 'سليم' : 'غير متاح';
-    }catch{ if(out) out.textContent='❌ فشل الاتصال'; const sh=document.getElementById('serviceHealth'); if(sh) sh.textContent='غير متاح'; }
-  });
-})();
-// === إضافة اختيار المجموعات من واتساب (Modal + API) ===
-(function(){
-  // استخدم أسماء متمايزة لتجنب التعارض
-  let wa_allChats = [];
-  let wa_selectedIds = [];
-
-  function wa_openModal(){ if(els.groupsOverlay) els.groupsOverlay.style.display='flex'; wa_renderList(); }
-  function wa_closeModal(){ if(els.groupsOverlay) els.groupsOverlay.style.display='none'; }
-
-  async function wa_loadChats(){
-    if(!els.apiBase || !els.apiBase.value){ return alert('أدخل API Base URL أولاً'); }
-    const base = (els.apiBase.value||'').replace(/\/$/,'');
-    els.chatsHint && (els.chatsHint.textContent='...جاري التحميل');
-    try{
-      const res = await fetch(base + '/chats', { headers: { 'Authorization': 'Bearer ' + (els.apiKey?.value||'') }});
-      const data = await res.json();
-      wa_allChats = Array.isArray(data) ? data.filter(c=>c && (c.isGroup!==false)) : [];
-      // مطابقات بالأسماء الحالية (groups من التخزين الموجود)
-      const current = (function(){ try{return JSON.parse(localStorage.getItem('bot_groups_v1')||'[]')}catch{return []} })();
-      const s = new Set(current);
-      wa_selectedIds = wa_allChats.filter(c=> s.has(c.name)).map(c=> c.id);
-      els.chatsHint && (els.chatsHint.textContent=`تم التحميل: ${wa_allChats.length} مجموعة`);
-      wa_renderList();
-    }catch(e){ els.chatsHint && (els.chatsHint.textContent='تعذّر التحميل'); }
-  }
-
-  function wa_renderList(){
-    if(!els.chatsList) return;
-    const q = (els.groupSearch?.value||'').toLowerCase();
-    const list = wa_allChats.filter(c=> (c.name||'').toLowerCase().includes(q));
-    els.chatsList.innerHTML='';
-    list.forEach(c=>{
-      const row=document.createElement('div'); row.className='list-item';
-      const checked = wa_selectedIds.includes(c.id)?'checked':'';
-      row.innerHTML = `<input type="checkbox" data-id="${c.id}" ${checked}/> <div style="flex:1">${escapeHtml(c.name||'')}</div> <span class="muted">${c.participants||0} عضو</span>`;
-      els.chatsList.appendChild(row);
-    });
-    if(els.selectedCount) els.selectedCount.textContent = String(wa_selectedIds.length);
-    els.chatsList.querySelectorAll('input[type="checkbox"]').forEach(ch=>{
-      ch.addEventListener('change',e=>{
-        const id=e.target.getAttribute('data-id');
-        if(e.target.checked){ if(!wa_selectedIds.includes(id)) wa_selectedIds.push(id); }
-        else { wa_selectedIds = wa_selectedIds.filter(x=>x!==id); }
-        if(els.selectedCount) els.selectedCount.textContent = String(wa_selectedIds.length);
-      });
-    });
-  }
-
-  // أزرار المودال
-  els.closeGroupsModal && els.closeGroupsModal.addEventListener('click', wa_closeModal);
-  els.refreshChats && els.refreshChats.addEventListener('click', wa_loadChats);
-  els.groupSearch && els.groupSearch.addEventListener('input', wa_renderList);
-  els.selectAllChats && els.selectAllChats.addEventListener('click', ()=>{ wa_selectedIds = wa_allChats.map(c=>c.id); wa_renderList(); });
-  els.clearAllChats && els.clearAllChats.addEventListener('click', ()=>{ wa_selectedIds = []; wa_renderList(); });
-  els.saveSelectedGroups && els.saveSelectedGroups.addEventListener('click', async ()=>{
-    const base = (els.apiBase?.value||'').replace(/\/$/,'');
-    try{
-      await fetch(base + '/groups/select', { method:'POST', headers:{ 'Content-Type':'application/json','Authorization':'Bearer '+(els.apiKey?.value||'') }, body: JSON.stringify({ ids: wa_selectedIds }) });
-    }catch(_){}
-    const set = new Set(wa_selectedIds);
-    const names = wa_allChats.filter(c=> set.has(c.id)).map(c=> c.name);
-    localStorage.setItem('bot_groups_v1', JSON.stringify(names));
-    // إعادة الرسم على شكل tags
-    if(typeof renderGroups==='function'){ window.groups = names; renderGroups(); }
-    wa_closeModal();
-  });
-
-  // فتح المودال من زر "اختيار من واتساب"
-  els.pickFromWhatsApp && els.pickFromWhatsApp.addEventListener('click', async ()=>{ await wa_loadChats(); wa_openModal(); });
-  // بعد الاتصال (مبدئيًا نسمح بالفتح من زر الربط أيضًا)
-  els.connectBtn && els.connectBtn.addEventListener('click', async ()=>{ await wa_loadChats(); wa_openModal(); });
-})();
-</script>
   <script>
-(function () {
-  const btn = document.getElementById('pingServer');
-  const resEl = document.getElementById('pingResult');
-  const healthEl = document.getElementById('serviceHealth');
-  if (!btn || !resEl || !healthEl) return;
+  /* (B) زر فحص الاتصال */
+  (function () {
+    const btn = document.getElementById('pingServer');
+    const resEl = document.getElementById('pingResult');
+    const healthEl = document.getElementById('serviceHealth');
+    if (!btn || !resEl || !healthEl) return;
 
-  btn.addEventListener('click', async () => {
-    const base = (document.getElementById('apiBase').value || '').trim().replace(/\/$/,'');
-    const key  = (document.getElementById('apiKey').value  || '').trim();
-    resEl.textContent = '⏳ جارِ الفحص...';
-    try {
-      const res  = await fetch(base + '/health', { headers: { Authorization: 'Bearer ' + key } });
-      resEl.textContent   = res.ok ? '✅ متصل' : ('❌ ' + res.status);
-      healthEl.textContent = res.ok ? 'سليم' : 'غير متاح';
-    } catch (e) {
-      resEl.textContent   = '❌ فشل الاتصال: ' + e.message;
-      healthEl.textContent = 'غير متاح';
-    }
-  });
-})();
-</script>
-  <script>
-(function(){
-  const apiBaseEl = document.getElementById('apiBase');
-  const apiKeyEl  = document.getElementById('apiKey');
-  const connectBtn = document.getElementById('connectBtn');
-  const qrOverlay = document.getElementById('qrOverlay');
-  const qrBox = document.getElementById('qrBox');
-  const closeQr = document.getElementById('closeQr');
-
-  let pollTimer = null;
-
-  function openQR(){ qrOverlay.style.display = 'flex'; }
-  function closeQR(){
-    qrOverlay.style.display = 'none';
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-  }
-  closeQr?.addEventListener('click', closeQR);
-
-  async function fetchQR(base, key){
-    // يحاول يجلب صورة QR
-    const res = await fetch(base + '/session/qr', { headers: { Authorization: 'Bearer ' + key }});
-    if (res.ok) {
-      const data = await res.json();
-      if (data.qr) {
-        qrBox.innerHTML = `<img src="${data.qr}" alt="QR" style="width:100%;max-width:320px;display:block">`;
-        return 'qr';
+    btn.addEventListener('click', async () => {
+      const base = (document.getElementById('apiBase').value || '').trim().replace(/\/$/,'');
+      const key  = (document.getElementById('apiKey').value  || '').trim();
+      if(!base || !key){ resEl.textContent='❌ أدخل API Base و API Key'; return; }
+      resEl.textContent = '⏳ جارِ الفحص...';
+      try {
+        const res  = await fetch(base + '/health', { headers: { Authorization: 'Bearer ' + key } });
+        resEl.textContent    = res.ok ? '✅ متصل' : ('❌ ' + res.status);
+        healthEl.textContent = res.ok ? 'سليم' : 'غير متاح';
+      } catch (e) {
+        resEl.textContent    = '❌ فشل الاتصال: ' + e.message;
+        healthEl.textContent = 'غير متاح';
       }
-      if (data.message === 'Already connected') {
-        return 'connected';
-      }
-    }
-    // لو 503 أو غيره، نعرض ملاحظة ونكمل
-    qrBox.innerHTML = `<span class="muted">لا يوجد QR حاليًا… سيُعاد المحاولة</span>`;
-    return 'waiting';
-  }
+    });
+  })();
 
-  async function checkReady(base, key){
-    const res = await fetch(base + '/health', { headers: { Authorization: 'Bearer ' + key }});
-    if (!res.ok) return false;
-    const data = await res.json();
-    return !!data.isReady;
-  }
+  /* مودال QR وربط واتساب */
+  (function(){
+    const apiBaseEl = document.getElementById('apiBase');
+    const apiKeyEl  = document.getElementById('apiKey');
+    const connectBtn = document.getElementById('connectBtn');
+    const qrOverlay = document.getElementById('qrOverlay');
+    const qrBox = document.getElementById('qrBox');
+    const closeQr = document.getElementById('closeQr');
+    const statusEl = document.getElementById('status');
 
-  async function startQrFlow(){
-    const base = (apiBaseEl.value || '').trim().replace(/\/$/, '');
-    const key  = (apiKeyEl.value  || '').trim();
-    if (!base) return alert('أدخل API Base');
-    openQR();
-    // محاولة أولى
-    const first = await fetchQR(base, key);
-    if (first === 'connected') {
-      qrBox.innerHTML = '<span class="muted">متصل مسبقًا ✅</span>';
-      setTimeout(closeQR, 900);
-      return;
+    let pollTimer = null;
+
+    function openQR(){ qrOverlay.style.display = 'flex'; }
+    function closeQR(){
+      qrOverlay.style.display = 'none';
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     }
-    // نبدأ poll: كل 3 ثوانٍ نتحقق من الجاهزية، وبينهم نحاول تحديث QR
-    pollTimer = setInterval(async () => {
-      const ready = await checkReady(base, key);
-      if (ready) {
-        qrBox.innerHTML = '<span class="muted">تم الاتصال ✅</span>';
-        setTimeout(closeQR, 800);
-        // (اختياري) حدث الحالة في الواجهة
-        const statusEl = document.getElementById('status');
-        if (statusEl) statusEl.textContent = 'متصل';
-        clearInterval(pollTimer); pollTimer = null;
+    closeQr?.addEventListener('click', closeQR);
+
+    async function fetchQR(base, key){
+      try{
+        const res = await fetch(base + '/session/qr', { headers: { Authorization: 'Bearer ' + key }});
+        if (res.ok) {
+          const data = await res.json();
+          if (data.qr) {
+            qrBox.innerHTML = `<img src="${data.qr}" alt="QR" style="width:100%;max-width:320px;display:block">`;
+            return 'qr';
+          }
+          if (data.message === 'Already connected') return 'connected';
+        }
+      }catch(_){}
+      qrBox.innerHTML = `<span class="muted">لا يوجد QR حاليًا… سيُعاد المحاولة</span>`;
+      return 'waiting';
+    }
+
+    async function checkReady(base, key){
+      try{
+        const res = await fetch(base + '/health', { headers: { Authorization: 'Bearer ' + key }});
+        if (!res.ok) return false;
+        const data = await res.json();
+        return !!data.isReady;
+      }catch(_){ return false; }
+    }
+
+    async function startQrFlow(){
+      const base = (apiBaseEl.value || '').trim().replace(/\/$/,'');
+      const key  = (apiKeyEl.value  || '').trim();
+      if (!base || !key) return alert('أدخل API Base و API Key');
+      openQR();
+      const first = await fetchQR(base, key);
+      if (first === 'connected') {
+        qrBox.innerHTML = '<span class="muted">متصل مسبقًا ✅</span>';
+        statusEl.textContent = 'متصل';
+        setTimeout(closeQR, 900);
         return;
       }
-      await fetchQR(base, key);
-    }, 3000);
-  }
+      pollTimer = setInterval(async () => {
+        const ready = await checkReady(base, key);
+        if (ready) {
+          qrBox.innerHTML = '<span class="muted">تم الاتصال ✅</span>';
+          statusEl.textContent = 'متصل';
+          clearInterval(pollTimer); pollTimer = null;
+          setTimeout(closeQR, 800);
+          return;
+        }
+        await fetchQR(base, key);
+      }, 3000);
+    }
 
-  connectBtn?.addEventListener('click', startQrFlow);
-})();
-</script>
-  <!-- Modal QR -->
-<div id="qrOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:99">
-  <div style="background:#fff;border-radius:16px;max-width:360px;width:92vw;padding:16px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.25)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <strong>امسح رمز واتساب</strong>
-      <button id="closeQr" class="btn btn-red" style="width:auto">إغلاق</button>
-    </div>
-    <div id="qrBox" style="min-height:300px;display:flex;align-items:center;justify-content:center;border:1px solid #eee;border-radius:12px;overflow:hidden">
-      <span class="muted">جارِ جلب QR...</span>
-    </div>
-    <div id="qrHint" class="muted" style="margin-top:8px">افتح واتساب → الأجهزة المرتبطة → اربط جهازًا</div>
-  </div>
-</div>
+    connectBtn?.addEventListener('click', startQrFlow);
+  })();
+  </script>
 </body>
 </html>
