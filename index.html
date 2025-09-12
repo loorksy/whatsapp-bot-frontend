@@ -443,5 +443,31 @@
   // بعد الاتصال (مبدئيًا نسمح بالفتح من زر الربط أيضًا)
   els.connectBtn && els.connectBtn.addEventListener('click', async ()=>{ await wa_loadChats(); wa_openModal(); });
 })();
-</script></body>
+</script>
+  <script>
+async function testBackend() {
+  const base = "https://whatsapp-bot-backend-1jdi.onrender.com";
+  const key  = "ahmad_SUPER_secret_2025";
+  const box  = document.createElement("div");
+  box.style.padding = "10px";
+  box.style.marginTop = "10px";
+  box.style.background = "#f0f0f0";
+  box.style.border = "1px solid #ccc";
+  box.style.borderRadius = "8px";
+  box.innerText = "⏳ جاري فحص الاتصال...";
+  document.body.appendChild(box);
+
+  try {
+    const res = await fetch(base + "/health", {
+      headers: { Authorization: "Bearer " + key }
+    });
+    const data = await res.json();
+    box.innerText = "✅ الرد من السيرفر: " + JSON.stringify(data);
+  } catch (e) {
+    box.innerText = "❌ خطأ: " + e.message;
+  }
+}
+testBackend();
+</script>
+</body>
 </html>
