@@ -175,5 +175,67 @@
     connectBtn?.addEventListener('click', startQrFlow);
   })();
   </script>
+  <script>
+(function(){
+  const statusEl   = document.getElementById('status');       // النص: متصل/غير متصل
+  const healthEl   = document.getElementById('serviceHealth'); // النص: سليم/غير متاح
+  const pingResult = document.getElementById('pingResult');    // نتيجة فحص الاتصال
+  const apiBaseEl  = document.getElementById('apiBase');
+  const apiKeyEl   = document.getElementById('apiKey');
+
+  let watchTimer = null;
+
+  function setSessionUI(isReady){
+    if (!statusEl) return;
+    statusEl.textContent = isReady ? 'متصل' : 'غير متصل';
+    // لو عندك نقطة ملوّنة، بدّلها هنا (مثال بسيط):
+    // document.getElementById('sessionDot').style.background = isReady ? '#34c759' : '#ff3b30';
+  }
+
+  async function fetchHealth(){
+    const base = (apiBaseEl.value||'').trim().replace(/\/$/,'');
+    const key  = (apiKeyEl.value ||'').trim();
+    if(!base || !key) return;
+    try{
+      const res  = await fetch(base + '/health', { headers: { Authorization: 'Bearer ' + key }});
+      if(!res.ok){ setSessionUI(false); healthEl && (healthEl.textContent='غير متاح'); return; }
+      const data = await res.json();
+      setSessionUI(!!data.isReady);
+      healthEl && (healthEl.textContent = 'سليم');
+      pingResult && (pingResult.textContent = '✅ متصل');
+    }catch(_){
+      setSessionUI(false);
+      healthEl && (healthEl.textContent='غير متاح');
+      pingResult && (pingResult.textContent='❌ فشل الاتصال');
+    }
+  }
+
+  // ابدأ المراقبة كل 5 ثواني
+  function startStatusWatcher(){
+    if (watchTimer) clearInterval(watchTimer);
+    fetchHealth(); // فحص فوري أولاً
+    watchTimer = setInterval(fetchHealth, 5000);
+  }
+
+  // شغّل المراقب عند تحميل الصفحة وبعد أي فحص/ربط
+  startStatusWatcher();
+
+  // لو زر فحص الاتصال موجود، خلّصته يعيد تشغيل المراقب بعد الفحص
+  const pingBtn = document.getElementById('pingServer');
+  if (pingBtn) {
+    pingBtn.addEventListener('click', () => {
+      setTimeout(startStatusWatcher, 300); // أعِد تشغيل المراقب
+    });
+  }
+
+  // ولو زر ربط واتساب موجود، شغّل المراقب بعد ما تغلق مودال QR
+  const closeQr = document.getElementById('closeQr');
+  if (closeQr) {
+    closeQr.addEventListener('click', () => {
+      setTimeout(startStatusWatcher, 800);
+    });
+  }
+})();
+</script>
 </body>
 </html>
