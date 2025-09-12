@@ -64,6 +64,9 @@
   .sheet .head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)}
   .sheet .body{padding:12px 14px}
   .sheet .foot{padding:12px 14px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:space-between;align-items:center}
+  .sheet{display:flex;flex-direction:column}
+  .sheet .body{flex:1;overflow:auto}
+  .sheet .foot{position:sticky;bottom:0;background:var(--card)}
 
   #toast{position:fixed;bottom:16px;right:16px;left:16px;margin:auto;max-width:420px;background:#111827;color:#fff;padding:12px 14px;border-radius:14px;box-shadow:var(--shadow);display:none;z-index:80}
   #toast.ok{background:#065f46} #toast.err{background:#7f1d1d}
@@ -99,7 +102,7 @@
       <section class="card">
         <h3>👤 العملاء</h3>
         <label>لصق دفعة (سطر/عميل، أو "الاسم,الإيموجي")</label>
-        <textarea id="bulkClients" placeholder="أحمد محمد عيسى,✅"></textarea>
+        <textarea id="bulkClients" placeholder="حسين محمد الخالد,✅"></textarea>
         <div class="btn-col" style="margin-top:8px">
           <button class="btn btn-ghost" id="applyClients">حفظ</button>
           <button class="btn btn-ghost" id="clearClients">مسح</button>
@@ -197,7 +200,7 @@
 <script>
 /* ===== إعدادات افتراضية (بدون إدخال يدوي) ===== */
 const DEFAULT_API_BASE = 'https://whatsapp-bot-backend-1jdi.onrender.com';
-const DEFAULT_API_KEY  = 'ahmad_SUPER_secret_2025'; // ⚠️ لأجل السرعة فقط. لاحقًا نبدلها بآلية آمنة.
+const DEFAULT_API_KEY  = 'ahmad_SUPER_secret_2025'; // ⚠️ مؤقتًا داخل الواجهة
 
 /* ===== Helpers & Storage ===== */
 const LS={api:'bot_api_v1',groupsNames:'bot_groups_names_v1',clients:'bot_clients_v1',settings:'bot_settings_v1',theme:'bot_theme_v1'};
@@ -215,108 +218,102 @@ const esc=s=>(s||'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"
   $('darkToggle').addEventListener('change',()=>{document.body.classList.toggle('dark',$('darkToggle').checked); save(LS.theme,{dark:$('darkToggle').checked});});
 })();
 
-/* ===== API Context (مخفي) ===== */
-const API = {
-  get base(){ return (load(LS.api,{base:DEFAULT_API_BASE,key:DEFAULT_API_KEY}).base||DEFAULT_API_BASE).replace(/\/$/,'') },
-  get key (){ return (load(LS.api,{base:DEFAULT_API_BASE,key:DEFAULT_API_KEY}).key || DEFAULT_API_KEY) },
-  setCtx(b,k){ save(LS.api,{base:b||DEFAULT_API_BASE,key:k||DEFAULT_API_KEY}); }
-};
-// خزّن الافتراضيات مرة إن لم تكن موجودة
-(function(){ const cur=load(LS.api,null); if(!cur){ save(LS.api,{base:DEFAULT_API_BASE,key:DEFAULT_API_KEY}); } })();
-
-/* ===== عناصر ===== */
-const els={
-  connectBtn:$('connectBtn'),status:$('status'),statusChip:$('statusChip'),
-  pickGroups:$('pickGroups'),refreshGroups:$('refreshGroups'),groupsTags:$('groupsTags'),
-  bulkClients:$('bulkClients'),applyClients:$('applyClients'),clearClients:$('clearClients'),
-  sheetUrl:$('sheetUrl'),importSheet:$('importSheet'),
-  mode:$('mode'),emoji:$('emoji'),replyText:$('replyText'),
-  threshold:$('threshold'),cooldown:$('cooldown'),rateLimit:$('rateLimit'),
-  mustInclude:$('mustInclude'),mustExclude:$('mustExclude'),
-  normalizeArabic:$('normalizeArabic'),enableOCR:$('enableOCR'),instantEyes:$('instantEyes'),dryRun:$('dryRun'),
-  timezone:$('timezone'),startDate:$('startDate'),startTime:$('startTime'),
-  startBtn:$('startBtn'),stopBtn:$('stopBtn'),runState:$('runState'),
-  qrOverlay:$('qrOverlay'),closeQr:$('closeQr'),qrBox:$('qrBox'),
-  groupsOverlay:$('groupsOverlay'),closeGroupsModal:$('closeGroupsModal'),
-  groupSearch:$('groupSearch'),chatsList:$('chatsList'),refreshChats:$('refreshChats'),
-  selectAllChats:$('selectAllChats'),clearAllChats:$('clearAllChats'),saveSelectedGroups:$('saveSelectedGroups'),selectedCount:$('selectedCount'),
-};
-
 /* ===== Session/Health ===== */
-function setSessionUI(ok){ const s=ok?'متصل':'غير متصل'; els.status.textContent=s; els.statusChip.textContent=s; }
+function setSessionUI(ok){ const s=ok?'متصل':'غير متصل'; $('status').textContent=s; $('statusChip').textContent=s; }
 async function health(){
-  try{const r=await fetch(API.base+'/health',{headers:{Authorization:'Bearer '+API.key}}); if(!r.ok) return {ok:false}; const d=await r.json(); return {ok:true,ready:!!d.isReady};}
+  try{const r=await fetch(DEFAULT_API_BASE+'/health'); if(!r.ok) return {ok:false}; const d=await r.json(); return {ok:true,ready:!!d.isReady};}
   catch{return {ok:false}}
 }
 let watchTimer=null;
-async function startWatcher(){
-  if(watchTimer) clearInterval(watchTimer);
-  const tick=async()=>{ const h=await health(); setSessionUI(h.ok && h.ready); };
-  await tick(); watchTimer=setInterval(tick,5000);
-}
+async function startWatcher(){ if(watchTimer) clearInterval(watchTimer); const tick=async()=>{ const h=await health(); setSessionUI(h.ok && h.ready); }; await tick(); watchTimer=setInterval(tick,5000); }
 startWatcher();
 
 /* ===== Mode toggle (emoji/text) ===== */
-(function(){ const sync=()=>{els.emoji.style.display=els.mode.value==='emoji'?'block':'none'; els.replyText.style.display=els.mode.value==='text'?'block':'none'}; els.mode.addEventListener('change',sync); sync(); })();
+(function(){ const sync=()=>{ $('emoji').style.display=$('mode').value==='emoji'?'block':'none'; $('replyText').style.display=$('mode').value==='text'?'block':'none'; }; $('mode').addEventListener('change',sync); sync(); })();
 
 /* ===== QR flow ===== */
-function openQR(){ els.qrOverlay.style.display='flex' } function closeQR(){ els.qrOverlay.style.display='none' }
-els.closeQr.addEventListener('click',closeQR);
+function openQR(){ $('qrOverlay').style.display='flex' } function closeQR(){ $('qrOverlay').style.display='none' }
+$('closeQr').addEventListener('click',closeQR);
 async function fetchQR(){
-  try{const r=await fetch(API.base+'/session/qr',{headers:{Authorization:'Bearer '+API.key}});
-    if(r.ok){const d=await r.json(); if(d.qr){els.qrBox.innerHTML=`<img src="${d.qr}" style="width:100%;max-width:320px;display:block">`; return 'qr'}
+  try{const r=await fetch(DEFAULT_API_BASE+'/session/qr',{headers:{Authorization:'Bearer '+DEFAULT_API_KEY}});
+    if(r.ok){const d=await r.json(); if(d.qr){$('qrBox').innerHTML=`<img src="${d.qr}" style="width:100%;max-width:320px;display:block">`; return 'qr'}
       if(d.message==='Already connected') return 'connected'}
   }catch{}
-  els.qrBox.innerHTML='<span class="muted">لا يوجد QR… سيُعاد</span>'; return 'waiting';
+  $('qrBox').innerHTML='<span class="muted">لا يوجد QR… سيُعاد</span>'; return 'waiting';
 }
 async function checkReady(){ const h=await health(); return h.ok && h.ready; }
-els.connectBtn.addEventListener('click',async()=>{
+$('connectBtn').addEventListener('click',async()=>{
   openQR(); let first=await fetchQR();
-  if(first==='connected'){ els.qrBox.innerHTML='<span class="muted">متصل ✅</span>'; setSessionUI(true); setTimeout(closeQR,900); return }
-  const poll=setInterval(async()=>{ if(await checkReady()){ els.qrBox.innerHTML='<span class="muted">تم ✅</span>'; setSessionUI(true); clearInterval(poll); setTimeout(closeQR,800) } else { await fetchQR() } },3000);
+  if(first==='connected'){ $('qrBox').innerHTML='<span class="muted">متصل ✅</span>'; setSessionUI(true); setTimeout(closeQR,900); return }
+  const poll=setInterval(async()=>{ if(await checkReady()){ $('qrBox').innerHTML='<span class="muted">تم ✅</span>'; setSessionUI(true); clearInterval(poll); setTimeout(closeQR,800) } else { await fetchQR() } },3000);
 });
 
-/* ===== Groups ===== */
+/* ===== Groups Modal ===== */
+const groupsOverlay=$('groupsOverlay'), chatsList=$('chatsList'), groupSearch=$('groupSearch'), refreshChats=$('refreshChats'),
+  selectAllChats=$('selectAllChats'), clearAllChats=$('clearAllChats'), closeGroupsModal=$('closeGroupsModal'),
+  saveSelectedGroups=$('saveSelectedGroups'), selectedCount=$('selectedCount'), groupsTags=$('groupsTags');
+
 let allChats=[], selectedIds=[], selectedNames=load(LS.groupsNames,[]);
-function renderTags(){ els.groupsTags.innerHTML=''; selectedNames.forEach(n=>{const t=document.createElement('div');t.className='tag';t.textContent=n;els.groupsTags.appendChild(t)}); }
+function renderTags(){ groupsTags.innerHTML=''; selectedNames.forEach(n=>{const t=document.createElement('div');t.className='tag';t.textContent=n;groupsTags.appendChild(t)}); }
 renderTags();
-function openGroups(){ els.groupsOverlay.style.display='flex' } function closeGroups(){ els.groupsOverlay.style.display='none' }
-els.closeGroupsModal.addEventListener('click',closeGroups);
+function openGroups(){ groupsOverlay.style.display='flex' } function closeGroups(){ groupsOverlay.style.display='none' }
+closeGroupsModal.addEventListener('click',closeGroups);
+
 function renderList(){
-  const q=(els.groupSearch.value||'').toLowerCase(); const list=allChats.filter(c=>(c.name||'').toLowerCase().includes(q));
-  els.chatsList.innerHTML='';
+  const q=(groupSearch.value||'').toLowerCase();
+  const list=allChats.filter(c=>(c.name||'').toLowerCase().includes(q));
+  chatsList.innerHTML='';
   list.forEach(c=>{
-    const row=document.createElement('div'); row.className='row'; row.style.cssText='justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 4px';
-    const checked=selectedIds.includes(c.id)?'checked':''; row.innerHTML=`<label class="row" style="gap:10px"><input type="checkbox" data-id="${c.id}" ${checked}><span>${esc(c.name||'')}</span></label><span class="muted">${c.participants||0} عضو</span>`;
-    els.chatsList.appendChild(row);
+    const row=document.createElement('div');
+    row.className='row';
+    row.style.cssText='justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 4px';
+    const checked=selectedIds.includes(c.id)?'checked':'';
+    row.innerHTML=`<label class="row" style="gap:10px"><input type="checkbox" data-id="${c.id}" ${checked}><span>${esc(c.name||'')}</span></label><span class="muted">${c.participants||0} عضو</span>`;
+    chatsList.appendChild(row);
   });
-  els.selectedCount.textContent=String(selectedIds.length);
-  els.chatsList.querySelectorAll('input[type="checkbox"]').forEach(ch=>{
+  selectedCount.textContent=String(selectedIds.length);
+  chatsList.querySelectorAll('input[type="checkbox"]').forEach(ch=>{
     ch.addEventListener('change',e=>{
       const id=e.target.getAttribute('data-id');
-      if(e.target.checked){ if(!selectedIds.includes(id)) selectedIds.push(id) }
-      else{ selectedIds=selectedIds.filter(x=>x!==id) }
-      els.selectedCount.textContent=String(selectedIds.length);
+      if(e.target.checked){ if(!selectedIds.includes(id)) selectedIds.push(id) } else { selectedIds=selectedIds.filter(x=>x!==id) }
+      selectedCount.textContent=String(selectedIds.length);
     });
   });
 }
 async function loadChats(){
-  els.chatsList.innerHTML='<div class="muted" style="padding:8px">...تحميل</div>';
-  try{const r=await fetch(API.base+'/chats',{headers:{Authorization:'Bearer '+API.key}}); if(!r.ok) throw new Error('HTTP '+r.status);
-    const data=await r.json(); allChats=(Array.isArray(data)?data:[]).filter(c=>c&&c.isGroup!==false);
-    const set=new Set(selectedNames); selectedIds=allChats.filter(c=>set.has(c.name)).map(c=>c.id); renderList();
-  }catch(e){ els.chatsList.innerHTML=`<div class="muted" style="padding:8px">تعذّر: ${e.message}</div>` }
+  chatsList.innerHTML='<div class="muted" style="padding:8px">...تحميل</div>';
+  try{
+    const r=await fetch(DEFAULT_API_BASE+'/chats',{headers:{Authorization:'Bearer '+DEFAULT_API_KEY}});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    allChats=(Array.isArray(data)?data:[]).filter(c=>c&&c.isGroup!==false);
+    const set=new Set(selectedNames);
+    selectedIds=allChats.filter(c=>set.has(c.name)).map(c=>c.id);
+    renderList();
+  }catch(e){
+    chatsList.innerHTML=`<div class="muted" style="padding:8px">تعذّر: ${e.message}</div>`;
+  }
 }
-els.pickGroups.addEventListener('click',async()=>{await loadChats(); openGroups()});
-els.refreshGroups.addEventListener('click',async()=>{await loadChats(); openGroups()});
-els.refreshChats.addEventListener('click',loadChats);
-els.groupSearch.addEventListener('input',renderList);
-els.selectAllChats.addEventListener('click',()=>{selectedIds=allChats.map(c=>c.id); renderList()});
-els.clearAllChats.addEventListener('click',()=>{selectedIds=[]; renderList()});
-els.saveSelectedGroups.addEventListener('click',async()=>{
-  const set=new Set(selectedIds); selectedNames=allChats.filter(c=>set.has(c.id)).map(c=>c.name); save(LS.groupsNames,selectedNames); renderTags();
-  try{await fetch(API.base+'/groups/select',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+API.key},body:JSON.stringify({ids:selectedIds})}); toast('تم الحفظ ✅','ok')}
-  catch{toast('حُفظ محليًا','err')} closeGroups();
+$('pickGroups').addEventListener('click',async()=>{ await loadChats(); openGroups(); });
+$('refreshGroups').addEventListener('click',async()=>{ await loadChats(); openGroups(); });
+refreshChats.addEventListener('click',loadChats);
+groupSearch.addEventListener('input',renderList);
+selectAllChats.addEventListener('click',()=>{ selectedIds=allChats.map(c=>c.id); renderList(); });
+clearAllChats.addEventListener('click',()=>{ selectedIds=[]; renderList(); });
+
+saveSelectedGroups.addEventListener('click',async()=>{
+  const set=new Set(selectedIds);
+  selectedNames = allChats.filter(c=>set.has(c.id)).map(c=>c.name);
+  save(LS.groupsNames,selectedNames); renderTags();
+  try{
+    await fetch(DEFAULT_API_BASE+'/groups/select',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',Authorization:'Bearer '+DEFAULT_API_KEY},
+      body: JSON.stringify({ ids: selectedIds })
+    });
+    toast('تم الحفظ ✅','ok');
+  }catch{ toast('حُفظ محليًا','err') }
+  closeGroups();
 });
 
 /* ===== Clients ===== */
@@ -326,35 +323,35 @@ function parseClients(text){
     const key=name.replace(/\s+/g,' ').trim(); if(!key||seen.has(key)) continue; seen.add(key); out.push({name:key,emoji}) }
   return out;
 }
-els.applyClients.addEventListener('click',()=>{const list=parseClients(els.bulkClients.value); save(LS.clients,list); toast(`حُفظ ${list.length} عميل ✅`,'ok')});
-els.clearClients.addEventListener('click',()=>{els.bulkClients.value=''; save(LS.clients,[]); toast('تم المسح','ok')});
-els.importSheet.addEventListener('click',async()=>{const url=(els.sheetUrl.value||'').trim(); if(!url) return toast('ضع رابط CSV','err'); try{const r=await fetch(url); const t=await r.text(); const lines=t.split(/\r?\n/).filter(x=>x.trim()); els.bulkClients.value=lines.join('\n'); toast('CSV جاهز — احفظ','ok')}catch{toast('تعذّر CSV','err')}});
+$('applyClients').addEventListener('click',()=>{const list=parseClients($('bulkClients').value); save(LS.clients,list); toast(`حُفظ ${list.length} عميل ✅`,'ok')});
+$('clearClients').addEventListener('click',()=>{$('bulkClients').value=''; save(LS.clients,[]); toast('تم المسح','ok')});
+$('importSheet').addEventListener('click',async()=>{const url=($('sheetUrl').value||'').trim(); if(!url) return toast('ضع رابط CSV','err'); try{const r=await fetch(url); const t=await r.text(); const lines=t.split(/\r?\n/).filter(x=>x.trim()); $('bulkClients').value=lines.join('\n'); toast('CSV جاهز — احفظ','ok')}catch{toast('تعذّر CSV','err')}});
 
 /* ===== Settings + Start/Stop ===== */
 function persistSettings(){
-  const s={mode:els.mode.value,emoji:els.emoji.value,replyText:els.replyText.value,threshold:+els.threshold.value||60,cooldown:+els.cooldown.value||3,rateLimit:+els.rateLimit.value||20,mustInclude:els.mustInclude.value,mustExclude:els.mustExclude.value,normalizeArabic:els.normalizeArabic.checked,enableOCR:els.enableOCR.checked,instantEyes:els.instantEyes.checked,dryRun:els.dryRun.checked,timezone:els.timezone.value,startDate:els.startDate.value,startTime:els.startTime.value};
+  const s={mode:$('mode').value,emoji:$('emoji').value,replyText:$('replyText').value,threshold:+$('threshold').value||60,cooldown:+$('cooldown').value||3,rateLimit:+$('rateLimit').value||20,mustInclude:$('mustInclude').value,mustExclude:$('mustExclude').value,normalizeArabic:$('normalizeArabic').checked,enableOCR:$('enableOCR').checked,instantEyes:$('instantEyes').checked,dryRun:$('dryRun').checked,timezone:$('timezone').value,startDate:$('startDate').value,startTime:$('startTime').value};
   save(LS.settings,s);
 }
 (function preloadSettings(){
-  const s=load(LS.settings,{}); const V=(k,d)=>{if(s[k]!==undefined&&els[k]) els[k].value=s[k]; else if(d!==undefined&&els[k]) els[k].value=d};
-  const C=(k,d)=>{if(s[k]!==undefined&&els[k]) els[k].checked=!!s[k]; else if(d!==undefined&&els[k]) els[k].checked=!!d};
+  const s=load(LS.settings,{}); const V=(k,d)=>{const el=$(k); if(!el) return; el.value=s[k]!==undefined?s[k]:d};
+  const C=(k,d)=>{const el=$(k); if(!el) return; el.checked=s[k]!==undefined?!!s[k]:!!d};
   V('mode','emoji'); V('emoji','✅'); V('replyText','تم ✅'); V('threshold',60); V('cooldown',3); V('rateLimit',20);
   V('mustInclude',''); V('mustExclude',''); C('normalizeArabic',true); C('enableOCR',false); C('instantEyes',true); C('dryRun',false);
   V('timezone','auto'); V('startDate',''); V('startTime','');
-  const cl=load(LS.clients,[]); if(cl.length) els.bulkClients.value=cl.map(c=>c.emoji?`${c.name},${c.emoji}`:c.name).join('\n');
-  const sync=()=>{els.emoji.style.display=els.mode.value==='emoji'?'block':'none'; els.replyText.style.display=els.mode.value==='text'?'block':'none'}; sync(); els.mode.addEventListener('change',sync);
+  const cl=load(LS.clients,[]); if(cl.length) $('bulkClients').value=cl.map(c=>c.emoji?`${c.name},${c.emoji}`:c.name).join('\n');
+  const sync=()=>{ $('emoji').style.display=$('mode').value==='emoji'?'block':'none'; $('replyText').style.display=$('mode').value==='text'?'block':'none' }; sync(); $('mode').addEventListener('change',sync);
 })();
-['mode','emoji','replyText','threshold','cooldown','rateLimit','mustInclude','mustExclude','timezone','startDate','startTime'].forEach(id=>els[id]?.addEventListener('change',persistSettings));
-['normalizeArabic','enableOCR','instantEyes','dryRun'].forEach(id=>els[id]?.addEventListener('change',persistSettings));
+['mode','emoji','replyText','threshold','cooldown','rateLimit','mustInclude','mustExclude','timezone','startDate','startTime'].forEach(id=>$(id)?.addEventListener('change',persistSettings));
+['normalizeArabic','enableOCR','instantEyes','dryRun'].forEach(id=>$(id)?.addEventListener('change',persistSettings));
 
 async function postJSON(path,body){
-  const r=await fetch(API.base+path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+API.key},body:JSON.stringify(body||{})});
+  const r=await fetch(DEFAULT_API_BASE+path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+DEFAULT_API_KEY},body:JSON.stringify(body||{})});
   if(!r.ok) throw new Error('HTTP '+r.status); return r.json();
 }
 function packPayload(){ return {clients:load(LS.clients,[]), groups:load(LS.groupsNames,[]), settings:load(LS.settings,{})} }
 
-els.startBtn.addEventListener('click',async()=>{ try{persistSettings(); await postJSON('/bot/start',packPayload()); els.runState.textContent='شغّال'; toast('بدأ ✅','ok')}catch(e){toast('تعذّر البدء: '+e.message,'err')} });
-els.stopBtn .addEventListener('click',async()=>{ try{await postJSON('/bot/stop',{}); els.runState.textContent='متوقف'; toast('توقّف','ok')}catch(e){toast('تعذّر الإيقاف: '+e.message,'err')} });
+$('startBtn').addEventListener('click',async()=>{ try{persistSettings(); await postJSON('/bot/start',packPayload()); $('runState').textContent='شغّال'; toast('بدأ ✅','ok')}catch(e){toast('تعذّر البدء: '+e.message,'err')} });
+$('stopBtn').addEventListener('click',async()=>{ try{await postJSON('/bot/stop',{}); $('runState').textContent='متوقف'; toast('توقّف','ok')}catch(e){toast('تعذّر الإيقاف: '+e.message,'err')} });
 </script>
 </body>
 </html>
