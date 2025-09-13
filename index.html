@@ -224,6 +224,12 @@ const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d))}catch{return d}};
 const esc=s=>(s||'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));
 
+// حمايات الوصول لعناصر قد تكون غير موجودة
+function valOf(id,def=''){const el=$(id);return el&&'value'in el?el.value:def}
+function chkOf(id,def=false){const el=$(id);return el&&'checked'in el?!!el.checked:def}
+function setV(id,v){const el=$(id);if(el&&'value'in el)el.value=v}
+function setC(id,v){const el=$(id);if(el&&'checked'in el)el.checked=!!v}
+
 /* ===== Theme ===== */
 (function(){
   const t=load(LS.theme,{dark:null}); const prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -271,10 +277,10 @@ let allChats=[], selectedIds=[], selectedNames=load(LS.groupsNames,[]);
 function renderTags(){ groupsTags.innerHTML=''; selectedNames.forEach(n=>{const t=document.createElement('div');t.className='tag';t.textContent=n;groupsTags.appendChild(t)}); }
 renderTags();
 function openGroups(){ groupsOverlay.style.display='flex' } function closeGroups(){ groupsOverlay.style.display='none' }
-closeGroupsModal.addEventListener('click',closeGroups);
+closeGroupsModal?.addEventListener('click',closeGroups);
 
 function renderList(){
-  const q=(groupSearch.value||'').toLowerCase();
+  const q=(groupSearch?.value||'').toLowerCase();
   const list=allChats.filter(c=>(c.name||'').toLowerCase().includes(q));
   chatsList.innerHTML='';
   list.forEach(c=>{
@@ -308,14 +314,14 @@ async function loadChats(){
     chatsList.innerHTML=`<div class="muted" style="padding:8px">تعذّر: ${e.message}</div>`;
   }
 }
-$('pickGroups').addEventListener('click',async()=>{ await loadChats(); openGroups(); });
-$('refreshGroups').addEventListener('click',async()=>{ await loadChats(); openGroups(); });
-refreshChats.addEventListener('click',loadChats);
-groupSearch.addEventListener('input',renderList);
-selectAllChats.addEventListener('click',()=>{ selectedIds=allChats.map(c=>c.id); renderList(); });
-clearAllChats.addEventListener('click',()=>{ selectedIds=[]; renderList(); });
+$('pickGroups')?.addEventListener('click',async()=>{ await loadChats(); openGroups(); });
+$('refreshGroups')?.addEventListener('click',async()=>{ await loadChats(); openGroups(); });
+refreshChats?.addEventListener('click',loadChats);
+groupSearch?.addEventListener('input',renderList);
+selectAllChats?.addEventListener('click',()=>{ selectedIds=allChats.map(c=>c.id); renderList(); });
+clearAllChats?.addEventListener('click',()=>{ selectedIds=[]; renderList(); });
 
-saveSelectedGroups.addEventListener('click',async()=>{
+saveSelectedGroups?.addEventListener('click',async()=>{
   const set=new Set(selectedIds);
   selectedNames = allChats.filter(c=>set.has(c.id)).map(c=>c.name);
   save(LS.groupsNames,selectedNames); renderTags();
@@ -337,92 +343,80 @@ function parseClients(text){
     const key=name.replace(/\s+/g,' ').trim(); if(!key||seen.has(key)) continue; seen.add(key); out.push({name:key,emoji}) }
   return out;
 }
-$('applyClients').addEventListener('click',()=>{const list=parseClients($('bulkClients').value); save(LS.clients,list); toast(`حُفظ ${list.length} عميل ✅`,'ok')});
-$('clearClients').addEventListener('click',()=>{$('bulkClients').value=''; save(LS.clients,[]); toast('تم المسح','ok')});
-$('importSheet').addEventListener('click',async()=>{const url=($('sheetUrl').value||'').trim(); if(!url) return toast('ضع رابط CSV','err'); try{const r=await fetch(url); const t=await r.text(); const lines=t.split(/\r?\n/).filter(x=>x.trim()); $('bulkClients').value=lines.join('\n'); toast('CSV جاهز — احفظ','ok')}catch{toast('تعذّر CSV','err')}});
+$('applyClients')?.addEventListener('click',()=>{const list=parseClients($('bulkClients')?.value); save(LS.clients,list); toast(`حُفظ ${list.length} عميل ✅`,'ok')});
+$('clearClients')?.addEventListener('click',()=>{$('bulkClients').value=''; save(LS.clients,[]); toast('تم المسح','ok')});
+$('importSheet')?.addEventListener('click',async()=>{const url=($('sheetUrl').value||'').trim(); if(!url) return toast('ضع رابط CSV','err'); try{const r=await fetch(url); const t=await r.text(); const lines=t.split(/\r?\n/).filter(x=>x.trim()); $('bulkClients').value=lines.join('\n'); toast('CSV جاهز — احفظ','ok')}catch{toast('تعذّر CSV','err')}});
 
-<script>
-// Helpers آمنة للوصول للحقول
-function valOf(id, def=''){
-  const el = document.getElementById(id);
-  return (el && 'value' in el) ? (el.value ?? def) : def;
-}
-function chkOf(id, def=false){
-  const el = document.getElementById(id);
-  return (el && 'checked' in el) ? !!el.checked : def;
-}
-function setV(id, val){
-  const el = document.getElementById(id);
-  if (el && 'value' in el) el.value = val;
-}
-function setC(id, val){
-  const el = document.getElementById(id);
-  if (el && 'checked' in el) el.checked = !!val;
-}
-
-// ⬇️ احفظ الإعدادات بطريقة تتحمل غياب أي عنصر
+/* ===== Settings + Start/Stop ===== */
 function persistSettings(){
-  const s = {
-    mode:         valOf('mode','emoji'),
-    emoji:        valOf('emoji','✅'),
-    replyText:    valOf('replyText','تم ✅'),
-    threshold:   +valOf('threshold',60) || 60,
-    cooldown:    +valOf('cooldown',3)  || 3,
-    rateLimit:   +valOf('rateLimit',20)|| 20,
-    mustInclude:  valOf('mustInclude',''),
-    mustExclude:  valOf('mustExclude',''),
-    normalizeArabic: chkOf('normalizeArabic',true),
-    enableOCR:       chkOf('enableOCR',false),
-    instantEyes:     chkOf('instantEyes',true),
-    dryRun:          chkOf('dryRun',false),
-    timezone:    valOf('timezone','auto'),
-    startDate:   valOf('startDate',''),
-    startTime:   valOf('startTime',''),
-    // الحقول الاختيارية (لو غير موجودة لا مشكلة)
-    historyOnStart:  chkOf('historyOnStart',false),
-    historyLimit:   +valOf('historyLimit',200) || 200,
+  const s={
+    mode:valOf('mode','emoji'), emoji:valOf('emoji','✅'), replyText:valOf('replyText','تم ✅'),
+    threshold:+valOf('threshold',60)||60, cooldown:+valOf('cooldown',3)||3, rateLimit:+valOf('rateLimit',20)||20,
+    mustInclude:valOf('mustInclude',''), mustExclude:valOf('mustExclude',''),
+    normalizeArabic:chkOf('normalizeArabic',true), enableOCR:chkOf('enableOCR',false), instantEyes:chkOf('instantEyes',true),
+    dryRun:chkOf('dryRun',false), timezone:valOf('timezone','auto'), startDate:valOf('startDate',''), startTime:valOf('startTime',''),
+    historyOnStart:chkOf('historyOnStart',false), historyLimit:+valOf('historyLimit',200)||200
   };
-  localStorage.setItem('bot_settings_v1', JSON.stringify(s));
-  return s;
+  save(LS.settings,s); return s;
 }
-
-// ⬇️ حمّل الإعدادات بأمان (ما يعتمد على وجود كل العناصر)
 (function preloadSettings(){
-  const raw = localStorage.getItem('bot_settings_v1');
-  let s = {};
-  try { s = raw ? JSON.parse(raw) : {}; } catch { s = {}; }
-
-  setV('mode',      s.mode      ?? 'emoji');
-  setV('emoji',     s.emoji     ?? '✅');
-  setV('replyText', s.replyText ?? 'تم ✅');
-  setV('threshold', s.threshold ?? 60);
-  setV('cooldown',  s.cooldown  ?? 3);
-  setV('rateLimit', s.rateLimit ?? 20);
-  setV('mustInclude', s.mustInclude ?? '');
-  setV('mustExclude', s.mustExclude ?? '');
-  setC('normalizeArabic', s.normalizeArabic ?? true);
-  setC('enableOCR',       s.enableOCR       ?? false);
-  setC('instantEyes',     s.instantEyes     ?? true);
-  setC('dryRun',          s.dryRun          ?? false);
-  setV('timezone', s.timezone ?? 'auto');
-  setV('startDate', s.startDate ?? '');
-  setV('startTime', s.startTime ?? '');
-  // اختياريين
-  setC('historyOnStart', s.historyOnStart ?? false);
-  setV('historyLimit',   s.historyLimit   ?? 200);
-
-  // مزامنة إظهار حقل الإيموجي/النص
-  const modeEl = document.getElementById('mode');
-  const emojiEl = document.getElementById('emoji');
-  const replyEl = document.getElementById('replyText');
-  const sync = () => {
-    if (!modeEl || !emojiEl || !replyEl) return;
-    emojiEl.style.display  = (modeEl.value === 'emoji') ? 'block' : 'none';
-    replyEl.style.display  = (modeEl.value === 'text')  ? 'block' : 'none';
-  };
-  modeEl?.addEventListener('change', sync);
-  sync();
+  const s=load(LS.settings,{}); const V=(k,d)=>setV(k,s[k]!==undefined?s[k]:d); const C=(k,d)=>setC(k,s[k]!==undefined?s[k]:d);
+  V('mode','emoji'); V('emoji','✅'); V('replyText','تم ✅'); V('threshold',60); V('cooldown',3); V('rateLimit',20);
+  V('mustInclude',''); V('mustExclude',''); C('normalizeArabic',true); C('enableOCR',false); C('instantEyes',true); C('dryRun',false);
+  V('timezone','auto'); V('startDate',''); V('startTime',''); C('historyOnStart',false); V('historyLimit',200);
+  const cl=load(LS.clients,[]); if(cl.length) $('bulkClients').value=cl.map(c=>c.emoji?`${c.name},${c.emoji}`:c.name).join('\n');
+  const sync=()=>{ $('emoji').style.display=$('mode').value==='emoji'?'block':'none'; $('replyText').style.display=$('mode').value==='text'?'block':'none' }; sync(); $('mode')?.addEventListener('change',sync);
 })();
+['mode','emoji','replyText','threshold','cooldown','rateLimit','mustInclude','mustExclude','timezone','startDate','startTime','historyOnStart','historyLimit'].forEach(id=>$(id)?.addEventListener('change',persistSettings));
+['normalizeArabic','enableOCR','instantEyes','dryRun'].forEach(id=>$(id)?.addEventListener('change',persistSettings));
+
+async function postJSON(path,body){
+  const r=await fetch(DEFAULT_API_BASE+path,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+DEFAULT_API_KEY},body:JSON.stringify(body||{})});
+  let d={}; try{ d=await r.json(); }catch{}
+  if(!r.ok) throw new Error(d.error||('HTTP '+r.status)); return d;
+}
+function packPayload(){ return {clients:load(LS.clients,[]), settings:load(LS.settings,{})} }
+
+$('startBtn')?.addEventListener('click',async()=>{ try{persistSettings(); await postJSON('/bot/start',packPayload()); $('runState').textContent='شغّال'; toast('بدأ ✅','ok')}catch(e){toast('تعذّر البدء: '+e.message,'err')} });
+$('stopBtn')?.addEventListener('click',async()=>{ try{await postJSON('/bot/stop',{}); $('runState').textContent='متوقف'; toast('توقّف','ok')}catch(e){toast('تعذّر الإيقاف: '+e.message,'err')} });
+
+/* ===== History Scan Now ===== */
+$('scanHistoryNow')?.addEventListener('click', async()=>{
+  try{
+    const limit = +valOf('historyLimit',200) || 200;
+    const r = await fetch(DEFAULT_API_BASE+'/history/scan',{
+      method:'POST',
+      headers:{'Content-Type':'application/json', Authorization:'Bearer '+DEFAULT_API_KEY},
+      body: JSON.stringify({ limit })
+    });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error||('HTTP '+r.status));
+    toast(`تم إدراج ${d.enqueued||0} رسالة للأرشيف ✅`,'ok');
+  }catch(e){
+    toast('تعذّر فحص الأرشيف: '+e.message, 'err');
+  }
+});
+
+/* ===== Logs Modal ===== */
+const logsOverlay = $('logsOverlay'), logsBody = $('logsBody');
+$('openLogs')?.addEventListener('click', async () => { logsOverlay.style.display = 'flex'; await loadLogs(); });
+$('closeLogs')?.addEventListener('click', () => { logsOverlay.style.display = 'none'; });
+async function loadLogs(){
+  logsBody.innerHTML = "<div class='muted'>...تحميل</div>";
+  try{
+    const r = await fetch(DEFAULT_API_BASE+"/logs",{headers:{Authorization:"Bearer "+DEFAULT_API_KEY}});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const data = await r.json();
+    logsBody.innerHTML = data.map(l=>
+      `<div style="border-bottom:1px solid var(--border);padding:6px 4px">
+         <span class="muted">${new Date(l.ts).toLocaleString()}</span><br>
+         <strong>${l.event}</strong> — ${(l.preview||l.body||'').toString().slice(0,120)} ${(l.from||l.jid||'')}
+       </div>`
+    ).join("");
+  }catch(e){
+    logsBody.innerHTML = `<div class="muted">خطأ: ${e.message}</div>`;
+  }
+}
 </script>
 </body>
 </html>
