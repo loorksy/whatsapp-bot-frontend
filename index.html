@@ -3,300 +3,128 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>لوحة تحكم بوت واتساب</title>
+<title>تشخيص بوت واتساب (MVP)</title>
 <style>
-  :root{
-    --bg:#f2f2f7; --card:#fff; --text:#0f172a; --muted:#6b7280; --border:#e5e7eb;
-    --blue:#0a84ff; --green:#34c759; --red:#ff3b30; --ghost:#eef2ff; --chip:#f3f4f6;
-    --shadow:0 10px 24px rgba(10,10,20,.06);
-  }
-  .dark{
-    --bg:#0b0f14; --card:#0f141a; --text:#e5e7eb; --muted:#94a3b8; --border:#1f2937;
-    --ghost:#1f2937; --chip:#111827; --shadow:0 12px 30px rgba(0,0,0,.45);
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Tajawal",Arial,sans-serif}
-  header{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--border);padding:12px;display:flex;justify-content:space-between;align-items:center}
-  main{max-width:920px;margin:12px auto;padding:0 12px 72px}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;box-shadow:var(--shadow);margin:10px 0}
-  h3{margin:0 0 8px}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  input,select,textarea,button{border:1px solid var(--border);border-radius:12px;padding:10px;font-size:15px;background:var(--card);color:var(--text)}
-  textarea{min-height:90px;width:100%}
-  .btn{background:var(--blue);color:#fff;border:none;font-weight:800;cursor:pointer}
-  .btn-ghost{background:var(--ghost)} .btn-green{background:var(--green)} .btn-red{background:var(--red)}
-  .state{display:inline-flex;gap:6px;align-items:center;background:var(--chip);padding:6px 10px;border-radius:999px}
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:60}
-  .sheet{background:var(--card);width:min(95vw,780px);max-height:86vh;border-radius:16px;overflow:auto;border:1px solid var(--border);box-shadow:var(--shadow)}
-  .head{padding:12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
-  .body{padding:12px} .foot{padding:12px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:space-between}
-  #toast{position:fixed;bottom:16px;left:16px;right:16px;margin:auto;max-width:420px;background:#111827;color:#fff;padding:10px;border-radius:12px;display:none;z-index:99}
+  body{font-family:system-ui,"Tajawal",sans-serif;background:#f5f7fb;margin:0;padding:16px;color:#111}
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;max-width:720px;margin:12px auto;box-shadow:0 4px 14px rgba(0,0,0,.05)}
+  h3{margin:0 0 10px}
+  button,input,select{font-size:15px;padding:10px;border-radius:10px;border:1px solid #e5e7eb}
+  button{cursor:pointer;background:#0a84ff;color:#fff;border:none}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  #log{white-space:pre-wrap;background:#0b1020;color:#d1e2ff;padding:10px;border-radius:10px;max-height:220px;overflow:auto}
+  .ok{color:#0a7a3d} .err{color:#b91c1c}
+  .tag{display:inline-block;background:#eef2ff;padding:4px 10px;border-radius:999px;margin:2px}
 </style>
 </head>
 <body>
-<header>
-  <strong>بوت واتساب</strong>
+
+<div class="card">
+  <h3>إعدادات الاتصال</h3>
   <div class="row">
-    <span class="state">جلسة: <b id="sessionState">غير متصل</b></span>
-    <label class="row" style="gap:6px"><input type="checkbox" id="darkToggle"> 🌙</label>
+    <input id="apiBase" style="min-width:260px;flex:1" />
+    <input id="apiKey"  style="min-width:220px;flex:1" />
+    <button id="saveCfg">حفظ</button>
+    <button id="check">فحص الاتصال</button>
   </div>
-</header>
+  <div>الحالة: <b id="status">—</b></div>
+</div>
 
-<main>
-  <!-- الجلسة -->
-  <section class="card">
-    <h3>🔌 الجلسة</h3>
-    <div class="row">
-      <button class="btn" id="btnQR">ربط واتساب (QR)</button>
-      <button class="btn btn-ghost" id="btnGroups">المجموعات</button>
-      <button class="btn btn-ghost" id="btnGroupsRefresh">تحديث</button>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <span class="state">الحالة: <b id="sessionChip">غير متصل</b></span>
-      <span class="state">المحدد: <b id="groupsCount">0</b></span>
-    </div>
-    <div id="selectedGroupsTags" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"></div>
-  </section>
+<div class="card">
+  <h3>الجلسة</h3>
+  <div class="row">
+    <button id="showQR">عرض QR</button>
+    <button id="getGroups">جلب المجموعات</button>
+    <button id="saveGroups">حفظ المجموعات المختارة</button>
+  </div>
+  <div id="qrBox" style="margin-top:10px"></div>
+  <div id="groupsBox" style="margin-top:10px"></div>
+</div>
 
-  <!-- العملاء -->
-  <section class="card">
-    <h3>👤 العملاء</h3>
-    <textarea id="clientsText" placeholder="سطر لكل عميل أو الاسم,الإيموجي"></textarea>
-    <div class="row">
-      <button class="btn btn-ghost" id="saveClients">حفظ</button>
-      <button class="btn btn-ghost" id="clearClients">مسح</button>
-    </div>
-  </section>
-
-  <!-- التفاعل -->
-  <section class="card">
-    <h3>⚡ التفاعل</h3>
-    <div class="row">
-      <label>الإيموجي</label>
-      <input id="emoji" value="✅" style="width:80px">
-    </div>
-    <div class="row">
-      <label>سرعة الرد</label>
-      <input id="rateLimit" type="number" min="1" max="120" value="20" style="width:120px" title="عدد التفاعلات بالدقيقة">
-      <input id="cooldown"  type="number" min="0" max="300" value="3"  style="width:120px" title="مهلة بالثواني بين تفاعلين">
-    </div>
-    <div class="row" style="margin-top:8px">
-      <label class="row" style="gap:6px"><input type="checkbox" id="enableOCR"> تدقيق صور (OCR)</label>
-      <span class="muted">يحلل صور الوصل لاستخراج الاسم</span>
-    </div>
-  </section>
-
-  <!-- الأرشيف -->
-  <section class="card">
-    <h3>🗄️ الأرشيف</h3>
-    <div class="row">
-      <label class="row" style="gap:6px"><input type="checkbox" id="archiveEnabled"> تفعيل</label>
-    </div>
-    <div class="row">
-      <input type="date" id="archiveDate">
-      <input type="time" id="archiveTime" step="60">
-      <input type="number" id="archiveLimit" value="200" min="10" max="1000" style="width:140px" title="عدد الرسائل لكل مجموعة">
-      <button class="btn btn-ghost" id="scanNow">فحص الآن</button>
-    </div>
-  </section>
-
-  <!-- تشغيل -->
-  <section class="card">
-    <div class="row">
-      <button class="btn btn-green" id="toggleStart">بدء</button>
-      <span class="state">التشغيل: <b id="runState">متوقف</b></span>
-    </div>
-  </section>
-
-  <section class="card" style="text-align:center">
-    <label class="row" style="justify-content:center;gap:6px">
-      <input type="checkbox" id="darkToggleBottom"> تفعيل الوضع الداكن
-    </label>
-  </section>
-</main>
-
-<!-- مودال QR -->
-<div class="overlay" id="qrModal">
-  <div class="sheet" style="max-width:380px">
-    <div class="head"><strong>مسح QR</strong><button class="btn btn-red" id="closeQR">إغلاق</button></div>
-    <div class="body"><div id="qrBox" style="min-height:300px;display:flex;align-items:center;justify-content:center">...</div></div>
+<div class="card">
+  <h3>تشغيل</h3>
+  <div class="row">
+    <input id="emoji" value="✅" style="width:80px">
+    <input id="rateLimit" type="number" value="20" style="width:120px" title="ردود/دقيقة">
+    <input id="cooldown"  type="number" value="3"  style="width:120px" title="مهلة ثواني">
+    <label><input type="checkbox" id="enableOCR"> OCR</label>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <button id="start">بدء</button>
+    <button id="stop" style="background:#ff3b30">إيقاف</button>
+    <span>تشغيل: <b id="running">—</b></span>
   </div>
 </div>
 
-<!-- مودال مجموعات -->
-<div class="overlay" id="groupsModal">
-  <div class="sheet">
-    <div class="head">
-      <strong>المجموعات</strong>
-      <div class="row">
-        <input id="groupSearch" placeholder="بحث..." style="width:260px">
-        <button class="btn btn-ghost" id="refreshChats">تحديث</button>
-        <button class="btn btn-ghost" id="selectAll">الكل</button>
-        <button class="btn btn-ghost" id="clearAll">إلغاء</button>
-        <button class="btn btn-red" id="closeGroups">إغلاق</button>
-      </div>
-    </div>
-    <div class="body" id="groupsList"></div>
-    <div class="foot">
-      <span>المحدد: <b id="selCount">0</b></span>
-      <button class="btn" id="saveGroups">حفظ</button>
-    </div>
-  </div>
+<div class="card">
+  <h3>Log</h3>
+  <div id="log">...</div>
 </div>
-
-<div id="toast"></div>
 
 <script>
-/* ===== الإعدادات الثابتة للاتصال ===== */
-const API_BASE = 'https://whatsapp-bot-backend-1jdi.onrender.com';
-const API_KEY  = 'ahmad_SUPER_secret_2025';
-
-/* ===== أدوات مساعدة ===== */
+const LS='mvp_cfg';
+const cfg = JSON.parse(localStorage.getItem(LS)||'{}');
 const $=id=>document.getElementById(id);
-const toast=(m)=>{const x=$('toast');x.textContent=m;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}
-const auth = { headers:{ Authorization:'Bearer '+API_KEY, 'Content-Type':'application/json' } };
-const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
-const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d))}catch{return d}};
-const esc=s=>(s||'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]);
+const log=(m,cls='')=>{const x=$('log');x.innerHTML += (cls?`<span class="${cls}">`:'')+m+(cls?'</span>':'')+"\n"; x.scrollTop=x.scrollHeight;};
 
-/* ===== وضع داكن ===== */
-function setDark(on){ document.body.classList.toggle('dark', !!on); $('darkToggle').checked=!!on; $('darkToggleBottom').checked=!!on; save('ui_dark', on); }
-$('darkToggle').onchange=()=>setDark($('darkToggle').checked);
-$('darkToggleBottom').onchange=()=>setDark($('darkToggleBottom').checked);
-setDark(load('ui_dark', null) ?? window.matchMedia('(prefers-color-scheme: dark)').matches);
+$('apiBase').value = cfg.apiBase || 'https://whatsapp-bot-backend-1jdi.onrender.com';
+$('apiKey').value  = cfg.apiKey  || 'ahmad_SUPER_secret_2025';
 
-/* ===== صحة الجلسة ===== */
-async function health(){
+$('saveCfg').onclick=()=>{ localStorage.setItem(LS, JSON.stringify({ apiBase:$('apiBase').value, apiKey:$('apiKey').value })); log('✔️ حُفظت الإعدادات','ok'); };
+
+async function GET(p){ const r=await fetch($('apiBase').value+p,{headers:{Authorization:'Bearer '+$('apiKey').value}}); if(r.status===401) throw new Error('Unauthorized'); return r.json(); }
+async function POST(p,body){ const r=await fetch($('apiBase').value+p,{method:'POST',headers:{Authorization:'Bearer '+$('apiKey').value,'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||('HTTP '+r.status)); return d; }
+
+$('check').onclick=async()=>{
+  try{ const d=await fetch($('apiBase').value+'/health').then(r=>r.json()); $('status').textContent = d.isReady?'متصل':'غير متصل'; $('running').textContent = d.running?'شغّال':'متوقف'; log('✅ /health ok','ok'); }
+  catch(e){ $('status').textContent='خطأ'; log('❌ /health: '+e.message,'err'); }
+};
+
+$('showQR').onclick=async()=>{
+  try{ const d=await GET('/session/qr'); if(d.qr){ $('qrBox').innerHTML=`<img src="${d.qr}" style="max-width:320px">`; log('✅ QR جاهز','ok'); } else { $('qrBox').textContent = d.message || 'لا يوجد QR'; } }
+  catch(e){ log('❌ /session/qr: '+e.message,'err'); }
+};
+
+let all=[], selected=[];
+$('getGroups').onclick=async()=>{
   try{
-    const r=await fetch(API_BASE+'/health');
-    const d=await r.json();
-    const ok=r.ok && d.isReady===true;
-    $('sessionState').textContent= ok?'متصل':'غير متصل';
-    $('sessionChip').textContent = ok?'متصل':'غير متصل';
-    $('runState').textContent    = d.running ? 'شغّال' : 'متوقف';
-    return d;
-  }catch{return { isReady:false, running:false }}
-}
-setInterval(health, 5000); health();
+    const list=await GET('/chats'); all=list; selected=[]; const box=$('groupsBox'); box.innerHTML='';
+    list.forEach(g=>{
+      const id='g_'+g.id.replace(/[@.:]/g,'_');
+      box.innerHTML += `<label style="display:block;margin:4px 0"><input type="checkbox" id="${id}" data-id="${g.id}"> ${g.name} <span style="color:#888">(${g.participants||0})</span></label>`;
+    });
+    box.querySelectorAll('input[type=checkbox]').forEach(ch=>{
+      ch.onchange = e => { const id=e.target.getAttribute('data-id'); if(e.target.checked){ if(!selected.includes(id)) selected.push(id); } else { selected = selected.filter(x=>x!==id); } };
+    });
+    log('✅ جلب المجموعات ('+list.length+')','ok');
+  }catch(e){ log('❌ /chats: '+e.message,'err'); }
+};
 
-/* ===== العملاء ===== */
-function parseClients(t){
-  return (t||'').split(/\n+/).map(s=>s.trim()).filter(Boolean).map(line=>{
-    if(line.includes(',')){ const [name,emoji] = line.split(','); return {name:name.trim(),emoji:(emoji||'').trim()} }
-    return { name: line, emoji:'' }
-  });
-}
-$('saveClients').onclick=()=>{ const list=parseClients($('clientsText').value); save('clients',list); toast('تم حفظ العملاء') }
-$('clearClients').onclick=()=>{ $('clientsText').value=''; save('clients',[]); toast('تم المسح') }
-(function preloadClients(){
-  const list=load('clients',[]);
-  if(list.length) $('clientsText').value = list.map(c=>c.emoji?`${c.name},${c.emoji}`:c.name).join('\n');
-})();
-
-/* ===== QR ===== */
-const qrModal=$('qrModal'); $('btnQR').onclick=async()=>{ qrModal.style.display='flex'; await showQR() }
-$('closeQR').onclick=()=>{ qrModal.style.display='none' }
-async function showQR(){
-  $('qrBox').innerHTML='...';
-  const r=await fetch(API_BASE+'/session/qr', { headers:{ Authorization:'Bearer '+API_KEY } });
-  const d=await r.json();
-  if(d.qr) $('qrBox').innerHTML=`<img src="${d.qr}" style="max-width:320px;width:100%">`;
-  else $('qrBox').innerHTML = d.message==='Already connected' ? 'متصل ✅' : 'لا يوجد QR الآن';
-}
-
-/* ===== مجموعات ===== */
-const groupsModal=$('groupsModal'), groupsList=$('groupsList'), selCount=$('selCount');
-let allGroups=[], selectedIds=[], selectedNames=load('groupNames',[]);
-function renderSelectedTags(){
-  const wrap=$('selectedGroupsTags'); wrap.innerHTML='';
-  selectedNames.forEach(n=>{ const tag=document.createElement('span'); tag.textContent=n; tag.style.cssText='background:var(--ghost);padding:4px 10px;border-radius:999px;font-size:13px'; wrap.appendChild(tag) });
-  $('groupsCount').textContent=String(selectedNames.length);
-}
-renderSelectedTags();
-
-async function fetchGroups(){
-  groupsList.innerHTML='...';
-  const r=await fetch(API_BASE+'/chats', { headers:{ Authorization:'Bearer '+API_KEY } });
-  const data=await r.json();
-  allGroups = Array.isArray(data) ? data : [];
-  // حاول استرجاع التحديد من الأسماء
-  const set = new Set(selectedNames);
-  selectedIds = allGroups.filter(g=>set.has(g.name)).map(g=>g.id);
-  drawGroupList();
-}
-function drawGroupList(){
-  const q=($('groupSearch').value||'').toLowerCase();
-  const list=allGroups.filter(g=>(g.name||'').toLowerCase().includes(q));
-  groupsList.innerHTML='';
-  list.forEach(g=>{
-    const row=document.createElement('div');
-    row.style.cssText='display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px';
-    const checked = selectedIds.includes(g.id) ? 'checked' : '';
-    row.innerHTML = `<label class="row" style="gap:8px"><input type="checkbox" data-id="${g.id}" ${checked}><span>${esc(g.name)}</span></label><span class="muted">${g.participants||0} عضو</span>`;
-    groupsList.appendChild(row);
-  });
-  groupsList.querySelectorAll('input[type="checkbox"]').forEach(ch=>{
-    ch.onchange=(e)=>{ const id=e.target.getAttribute('data-id'); if(e.target.checked){ if(!selectedIds.includes(id)) selectedIds.push(id); } else { selectedIds=selectedIds.filter(x=>x!==id); } selCount.textContent=String(selectedIds.length); };
-  });
-  selCount.textContent=String(selectedIds.length);
-}
-$('btnGroups').onclick=async()=>{ await fetchGroups(); groupsModal.style.display='flex' }
-$('btnGroupsRefresh').onclick=async()=>{ await fetchGroups(); groupsModal.style.display='flex' }
-$('refreshChats').onclick=fetchGroups;
-$('closeGroups').onclick=()=>{ groupsModal.style.display='none' }
-$('selectAll').onclick=()=>{ selectedIds=allGroups.map(g=>g.id); drawGroupList() }
-$('clearAll').onclick=()=>{ selectedIds=[]; drawGroupList() }
 $('saveGroups').onclick=async()=>{
-  const set=new Set(selectedIds);
-  selectedNames = allGroups.filter(g=>set.has(g.id)).map(g=>g.name);
-  save('groupNames',selectedNames);
-  renderSelectedTags();
-  await fetch(API_BASE+'/groups/select', { method:'POST', headers:{ Authorization:'Bearer '+API_KEY, 'Content-Type':'application/json' }, body: JSON.stringify({ ids: selectedIds }) });
-  toast('تم حفظ المجموعات');
-  groupsModal.style.display='none';
+  try{ await POST('/groups/select',{ids:selected}); log('✅ تم حفظ المجموعات المختارة','ok'); }
+  catch(e){ log('❌ /groups/select: '+e.message,'err'); }
 };
 
-/* ===== بدء / إيقاف ===== */
-function formSettings(){
-  const clients = load('clients',[]);
-  const emoji = $('emoji').value || '✅';
-  const rateLimit = Math.max(1, +$('rateLimit').value || 20);
-  const cooldown  = Math.max(0, +$('cooldown').value  || 3);
-  const enableOCR = !!$('enableOCR').checked;
-  const archiveEnabled = !!$('archiveEnabled').checked;
-  const date = $('archiveDate').value;
-  const time = $('archiveTime').value;
-  let archiveStart = null;
-  if (archiveEnabled && date && time) archiveStart = new Date(`${date}T${time}:00`).toISOString();
-  const archiveLimit = Math.max(10, +$('archiveLimit').value || 200);
-  return {
-    clients,
-    settings: {
-      emoji, rateLimit, cooldown, enableOCR,
-      archive: { enabled: archiveEnabled, startAt: archiveStart, limit: archiveLimit }
-    }
-  };
-}
-const toggleBtn=$('toggleStart');
-toggleBtn.onclick=async()=>{
-  const h = await health();
-  if (h.running){
-    await fetch(API_BASE+'/bot/stop', { method:'POST', ...auth });
-    $('runState').textContent='متوقف'; toggleBtn.textContent='بدء'; toast('توقف');
-  }else{
-    const body = formSettings();
-    await fetch(API_BASE+'/bot/start', { method:'POST', ...auth, body: JSON.stringify(body) });
-    $('runState').textContent='شغّال'; toggleBtn.textContent='إيقاف'; toast('بدأ');
-  }
+$('start').onclick=async()=>{
+  try{
+    const body={
+      clients: JSON.parse(localStorage.getItem('clients')||'[]'),
+      settings:{
+        emoji: $('emoji').value || '✅',
+        rateLimit: Math.max(1,+$('rateLimit').value||20),
+        cooldown:  Math.max(0,+$('cooldown').value||3),
+        enableOCR: !!$('enableOCR').checked,
+        archive:{ enabled:false, startAt:null, limit:200 }
+      }
+    };
+    const d=await POST('/bot/start', body);
+    $('running').textContent = d.running?'شغّال':'متوقف';
+    log('✅ /bot/start','ok');
+  }catch(e){ log('❌ /bot/start: '+e.message,'err'); }
 };
-$('scanNow').onclick=async()=>{
-  const enabled = $('archiveEnabled').checked;
-  const date = $('archiveDate').value, time=$('archiveTime').value;
-  if (!enabled || !date || !time) return toast('فعّل الأرشيف وحدد التاريخ/الوقت');
-  const startAt = new Date(`${date}T${time}:00`).toISOString();
-  const limit   = Math.max(10, +$('archiveLimit').value || 200);
-  const r=await fetch(API_BASE+'/history/scan', { method:'POST', ...auth, body: JSON.stringify({ startAt, limit }) });
-  const d=await r.json(); if(r.ok) toast(`أُدرج ${d.enqueued||0} رسالة`); else toast('خطأ: '+(d.error||r.statusText));
+
+$('stop').onclick=async()=>{
+  try{ const d=await POST('/bot/stop',{}); $('running').textContent = d.running?'شغّال':'متوقف'; log('✅ /bot/stop','ok'); }
+  catch(e){ log('❌ /bot/stop: '+e.message,'err'); }
 };
 </script>
 </body>
